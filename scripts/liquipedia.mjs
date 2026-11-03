@@ -4,25 +4,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
-// PandaScore oyun kısa adı → Liquipedia wiki adı
-export const WIKIS = {
-  'league-of-legends': 'leagueoflegends',
-  'cs-go': 'counterstrike',
-  'dota-2': 'dota2',
-  'valorant': 'valorant',
-  'ow': 'overwatch',
-  'r6-siege': 'rainbowsix',
-  'rl': 'rocketleague',
-  'pubg': 'pubg',
-  'cod-mw': 'callofduty',
-  'fifa': 'easportsfc',
-  'mlbb': 'mobilelegends',
-  'lol-wild-rift': 'wildrift',
-  'kog': 'honorofkings',
-  'starcraft-2': 'starcraft2',
-  'starcraft-brood-war': 'starcraft',
-};
-
 const DAY = 86_400_000;
 const FOUND_TTL = 30 * DAY;
 const MISSING_TTL = 3 * DAY;

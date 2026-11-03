@@ -1,32 +1,12 @@
-import { GAME_ICONS } from './game-icons.js';
-
-const DATA_URL = 'data/esports.json';
+const DATA_URL = 'data/cs2.json';
+const TEAMS_URL = 'data/teams.json';
 const REFRESH_MS = 60_000;
 
-// PandaScore oyun kısa adlarına göre etiket ve renkler. Simgesi olmayan oyunlar `mono` kısaltmasıyla,
-// listede olmayanlar verideki adla gösterilir.
-const GAMES = {
-  'league-of-legends': { short: 'LoL', name: 'League of Legends', color: '#c9a24a' },
-  'cs-go': { short: 'CS2', name: 'Counter-Strike 2', color: '#f0a020' },
-  'valorant': { short: 'Valorant', name: 'Valorant', color: '#ff4655' },
-  'dota-2': { short: 'Dota 2', name: 'Dota 2', color: '#d8432f' },
-  'ow': { short: 'Overwatch', name: 'Overwatch 2', color: '#f99e1a', mono: 'OW' },
-  'r6-siege': { short: 'R6 Siege', name: 'Rainbow Six Siege', color: '#5b8def', mono: 'R6' },
-  'rl': { short: 'Rocket League', name: 'Rocket League', color: '#2a9df4', mono: 'RL' },
-  'pubg': { short: 'PUBG', name: 'PUBG', color: '#e8b931' },
-  'mlbb': { short: 'MLBB', name: 'Mobile Legends', color: '#9b7bff', mono: 'ML' },
-  'cod-mw': { short: 'CoD', name: 'Call of Duty', color: '#7cb342', mono: 'CoD' },
-  'fifa': { short: 'EA FC', name: 'EA Sports FC', color: '#22b573', mono: 'FC' },
-  'lol-wild-rift': { short: 'Wild Rift', name: 'LoL: Wild Rift', color: '#3fb6c8', mono: 'WR' },
-  'kog': { short: 'KoG', name: 'King of Glory', color: '#e0703a', mono: 'KoG' },
-  'starcraft-2': { short: 'SC II', name: 'StarCraft II', color: '#4f9fd8', mono: 'SC2' },
-  'starcraft-brood-war': { short: 'SC:BW', name: 'StarCraft: Brood War', color: '#8a94a6', mono: 'BW' },
-};
-const GAME_ORDER = Object.keys(GAMES);
-const TABS = ['canli', 'yaklasan', 'sonuclar', 'ligler'];
-const BIG_TIERS = new Set(['s', 'a']);
+const LIST_VIEWS = ['canli', 'yaklasan', 'sonuclar', 'turnuvalar'];
+const TIERS = [['s', 'S'], ['a', 'A'], ['b', 'B'], ['c', 'C'], ['d', 'D'], ['other', 'Diğer']];
 const TIER_ORDER = { s: 0, a: 1, b: 2, c: 3, d: 4, unranked: 5 };
 const TBD = { id: null, name: 'Belirlenecek', acronym: '?', score: null, tbd: true };
+const TITLE = 'CS2 Esports Center — Canlı CS2 maçları, fikstür ve istatistikler';
 
 const PLATFORMS = [
   ['twitch.tv', 'Twitch'], ['youtube.com', 'YouTube'], ['youtu.be', 'YouTube'], ['kick.com', 'Kick'],
@@ -35,19 +15,37 @@ const PLATFORMS = [
   ['tiktok.com', 'TikTok'],
 ];
 
+// 24x24 çizgi simgeler
 const ICONS = {
-  live: '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="m17 2-5 5-5-5"/>',
+  live: '<circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19.1 4.9a10 10 0 0 1 0 14.2M4.9 19.1a10 10 0 0 1 0-14.2"/>',
   calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
   results: '<path d="m9 11 3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>',
   trophy: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
   error: '<circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>',
+  map: '<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/>',
+  flame: '<path d="M12 22c3.9 0 7-2.8 7-7 0-3.6-2.4-6.4-4.6-8.6.1 2.4-1 3.9-2.4 4.4.3-3-1.3-6.1-4.5-8.8.4 3.6-3.5 6.6-3.5 11.4C4 18.9 7.6 22 12 22z"/>',
+  swords: '<path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/><path d="M14.5 6.5 18 3h3v3l-3.5 3.5M5 14l4 4M7 17l-3 3M3 19l2 2"/>',
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/>',
+  chart: '<path d="M3 3v18h18"/><path d="M8 17v-4M13 17V8M18 17v-7"/>',
+  percent: '<path d="M19 5 5 19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
+  back: '<path d="m15 18-6-6 6-6"/>',
+  next: '<path d="m9 18 6-6-6-6"/>',
+  list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  history: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/>',
+  tv: '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="m17 2-5 5-5-5"/>',
 };
-const PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
+const PLAY = '<svg class="play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
 
-const state = { data: null, error: null, tab: null, game: 'all', tournament: null, query: '', bigOnly: false };
+const state = {
+  data: null, error: null, teams: null, teamsLoading: null,
+  view: null, tier: 'all', id: null, query: '', listHash: '#/canli',
+};
 
 const $ = sel => document.querySelector(sel);
 const view = $('#view');
+const scrollMemory = new Map();
 
 const store = {
   get(key) { try { return localStorage.getItem(key); } catch { return null; } },
@@ -63,6 +61,9 @@ const fmtNum = new Intl.NumberFormat('tr-TR');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const norm = s => String(s ?? '').toLocaleLowerCase('tr');
 const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+const icon = (name, cls = '') => `<svg class="ic${cls ? ` ${cls}` : ''}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
+const pairKey = (x, y) => (x < y ? `${x}-${y}` : `${y}-${x}`);
+const matchHash = id => `#/mac/${id}`;
 
 function safeUrl(value) {
   try {
@@ -88,6 +89,8 @@ function dayName(date) {
   return { 0: 'Bugün', 1: 'Yarın', '-1': 'Dün' }[diff] ?? null;
 }
 
+const shortDate = ms => dayName(new Date(ms)) ?? fmtShort.format(ms);
+
 function prize(value) {
   const m = /^(\d+)\s+(.+)$/.exec(value ?? '');
   if (!m) return value ?? '';
@@ -95,45 +98,34 @@ function prize(value) {
   return symbol ? `${symbol}${fmtNum.format(m[1])}` : `${fmtNum.format(m[1])} ${m[2]}`;
 }
 
-function gameInfo(game) {
-  return GAMES[game?.slug] ?? { short: game?.name ?? 'Diğer', name: game?.name ?? 'Diğer', color: null };
-}
-
-// Açık renkli oyun karolarında simge koyu, diğerlerinde beyaz olsun.
-function ink(hex) {
-  const [r, g, b] = [1, 3, 5]
-    .map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
-    .map(c => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.34 ? '#15171c' : '#ffffff';
-}
-const gameStyle = info => (info.color ? ` style="--g:${info.color};--ink:${ink(info.color)}"` : '');
-
-function gameIcon(game, size = '') {
-  const info = gameInfo(game);
-  const path = GAME_ICONS[game?.slug];
-  const glyph = path
-    ? `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"/></svg>`
-    : `<b aria-hidden="true">${esc(info.mono ?? initials({ name: info.name }))}</b>`;
-  return `<span class="gicon ${size}"${gameStyle(info)} role="img" aria-label="${esc(info.name)}" title="${esc(info.name)}">${glyph}</span>`;
-}
-const gameTag = (game, { full = false } = {}) =>
-  `<span class="game-tag">${gameIcon(game, 'sm')}${esc(full ? gameInfo(game).name : gameInfo(game).short)}</span>`;
-
 function boLabel(m) {
   if (!m.bo) return '';
   if (m.type === 'first_to') return `İlk ${m.bo}`;
-  if (m.type === 'all_games_played') return `${m.bo} oyun`;
+  if (m.type === 'all_games_played') return `${m.bo} harita`;
   return `Bo${m.bo}`;
 }
 
+// Ülke kodundan bayrak emojisi (ör. "TR" → 🇹🇷)
+function flag(code) {
+  if (!/^[A-Za-z]{2}$/.test(code ?? '')) return '';
+  const emoji = code.toUpperCase().replace(/./g, c => String.fromCodePoint(127397 + c.charCodeAt(0)));
+  return `<span class="flag" title="${esc(code.toUpperCase())}">${emoji}</span>`;
+}
+
+const tierKey = item => {
+  const tier = item.tournament?.tier ?? item.tier;
+  return ['s', 'a', 'b', 'c', 'd'].includes(tier) ? tier : 'other';
+};
 const tierRank = item => TIER_ORDER[item.tournament?.tier ?? item.tier] ?? 9;
-const tierBadge = tier => (tier && tier !== 'unranked' ? `<span class="tier ${esc(tier)}" title="Turnuva seviyesi">${esc(tier)}</span>` : '');
+const tierBadge = tier => (tier && tier !== 'unranked'
+  ? `<span class="tier t-${esc(tier)}" title="${esc(tier.toUpperCase())} seviye turnuva">${esc(tier)}</span>` : '');
 const subtitle = m => [m.serie, m.tournament?.name].filter(Boolean).join(' · ');
 
 function initials(entity) {
   if (!entity?.name) return '?';
   if (entity.acronym && entity.acronym.length <= 4) return entity.acronym;
-  return entity.name.split(/\s+/).map(w => w[0]).join('').slice(0, 3).toUpperCase();
+  const words = entity.name.split(/\s+/);
+  return (words.length > 1 ? words.map(w => w[0]).join('') : entity.name.slice(0, 2)).slice(0, 3).toUpperCase();
 }
 
 // Logosu olmayan takımlar için addan türetilen sabit bir renk tonu.
@@ -152,16 +144,16 @@ function logo(entity, size = '') {
   return `<img class="logo ${size}" src="${esc(src)}" alt="" loading="lazy" decoding="async" data-initials="${text}" data-hue="${h ?? ''}">`;
 }
 
-// Takım logosu + adı; Liquipedia sayfası bulunduysa ikisi birlikte o sayfaya bağlanır.
-function teamEl(team, { size = '', rev = false } = {}) {
+// Takım/oyuncu logosu + adı; Liquipedia sayfası bulunduysa ikisi birlikte o sayfaya bağlanır.
+function teamEl(team, { size = '', rev = false, cls = '' } = {}) {
   const url = safeUrl(team?.liquipedia);
   const name = team?.name ?? '';
   const inner = `${logo(team, size)}<span class="name">${esc(name)}</span>`;
-  const cls = `team${rev ? ' rev' : ''}`;
+  const classes = ['team', rev && 'rev', cls].filter(Boolean).join(' ');
   return url
-    ? `<a class="${cls}" href="${esc(url)}" target="_blank" rel="noopener" title="${esc(`${name} · Liquipedia`)}"
+    ? `<a class="${classes}" href="${esc(url)}" target="_blank" rel="noopener" title="${esc(`${name} · Liquipedia`)}"
          aria-label="${esc(`${name}, Liquipedia sayfası (yeni sekme)`)}">${inner}</a>`
-    : `<span class="${cls}" title="${esc(name)}">${inner}</span>`;
+    : `<span class="${classes}" title="${esc(name)}">${inner}</span>`;
 }
 
 function platform(url) {
@@ -184,29 +176,31 @@ function sides(m) {
   return [teams[0] ?? TBD, teams[1] ?? TBD];
 }
 
+const allMatches = () => [...state.data.running, ...state.data.upcoming, ...state.data.past];
+const findMatch = id => allMatches().find(m => m.id === id);
+
 /* ---------- Filtreleme ---------- */
 function searchText(item) {
   const teams = item.teams ?? item.standings?.map(s => s.team) ?? [];
   return norm([
-    item.league?.name, item.serie, item.tournament?.name ?? item.name,
+    item.league?.name, item.serie, item.tournament?.name ?? item.name, item.stage,
     ...teams.flatMap(t => [t?.name, t?.acronym]),
   ].join(' '));
 }
 
-function filterItems(list, ignoreGame = false) {
+function filterItems(list, ignoreTier = false) {
   const q = norm(state.query.trim());
   return list.filter(item =>
-    (ignoreGame || state.game === 'all' || item.game?.slug === state.game) &&
-    (!state.bigOnly || BIG_TIERS.has(item.tournament?.tier ?? item.tier)) &&
+    (ignoreTier || state.tier === 'all' || tierKey(item) === state.tier) &&
     (!q || searchText(item).includes(q)));
 }
 
-const filtersActive = () => Boolean(state.query.trim() || state.game !== 'all' || state.bigOnly);
+const filtersActive = () => Boolean(state.query.trim() || state.tier !== 'all');
 
-/* ---------- Görünümler ---------- */
-function empty(icon, title, body = '') {
+/* ---------- Liste görünümleri ---------- */
+function empty(iconName, title, body = '') {
   const hint = filtersActive() ? ' <a href="#" data-action="clear">Filtreleri temizle</a>' : '';
-  return `<div class="empty"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[icon]}</svg><b>${title}</b><span>${body}${hint}</span></div>`;
+  return `<div class="empty">${icon(iconName)}<b>${title}</b><span>${body}${hint}</span></div>`;
 }
 
 // Ana yayınla aynı dildeki alternatifler platform adıyla, farklı dildekiler dil koduyla gösterilir.
@@ -220,6 +214,16 @@ function altStreams(list, main) {
   }).join('')}</div>`;
 }
 
+function mapStrip(m, a, b) {
+  if (!m.games?.length) return '';
+  return `<div class="map-strip" aria-label="Harita durumu">${m.games.map(g => {
+    const winner = g.winner_id == null ? null : g.winner_id === a.id ? a : g.winner_id === b.id ? b : null;
+    const cls = g.status === 'running' ? 'live' : winner ? (winner === a ? 'won-a' : 'won-b') : 'idle';
+    const label = g.status === 'running' ? 'Oynanıyor' : winner ? initials(winner) : '—';
+    return `<span class="mp ${cls}" title="${esc(`Harita ${g.position}${winner ? `: ${winner.name}` : ''}`)}"><b>H${g.position}</b>${esc(label)}</span>`;
+  }).join('')}</div>`;
+}
+
 function teamRow(team, trailing) {
   return `<div class="team-row${trailing ? ' trailing' : ''}">${teamEl(team)}
     <span class="score">${esc(team.score ?? 0)}</span></div>`;
@@ -230,21 +234,21 @@ function liveCard(m) {
   const [main, ...rest] = streamsOf(m);
   const lead = (a.score ?? 0) === (b.score ?? 0) ? null : (a.score ?? 0) > (b.score ?? 0) ? 'a' : 'b';
   const started = Date.parse(m.begin_at);
-  const sub = subtitle(m);
   const watch = main
-    ? `<a class="watch stretched" href="${esc(main.url)}" target="_blank" rel="noopener"
+    ? `<a class="watch" href="${esc(main.url)}" target="_blank" rel="noopener"
          aria-label="${esc(`${a.name} - ${b.name} canlı izle, ${platform(main.url)} (yeni sekme)`)}">
-         ${PLAY}İzle<span class="via">· ${esc(platform(main.url))}${main.lang ? ` ${esc(main.lang.toUpperCase())}` : ''}</span></a>`
-    : '<span class="no-stream">Yayın bilgisi yok</span>';
-  return `<article class="card${main ? ' clickable' : ''}">
+         ${PLAY}İzle<span class="via">${esc(platform(main.url))}${main.lang ? ` ${esc(main.lang.toUpperCase())}` : ''}</span></a>`
+    : '<span class="no-stream">Yayın yok</span>';
+  return `<article class="card">
+    <a class="stretched" href="${matchHash(m.id)}" aria-label="${esc(`${a.name} - ${b.name} maç detayı`)}"></a>
     <div class="card-head">
-      <span class="badge-live"><i></i>CANLI</span>
-      ${gameIcon(m.game)}
+      <span class="badge-live"><i></i>CANLI</span>${tierBadge(m.tournament?.tier)}
       ${started ? `<span class="since">${esc(relative(started - Date.now()).replace('önce', 'önce başladı'))}</span>` : ''}
     </div>
-    <div class="card-league">${logo(m.league, 'sm')}<span><b>${esc(m.league?.name)}</b>${sub ? ` · ${esc(sub)}` : ''}</span></div>
+    <div class="card-league">${logo(m.league, 'sm')}<span><b>${esc(m.league?.name)}</b>${m.stage ? ` · ${esc(m.stage)}` : subtitle(m) ? ` · ${esc(subtitle(m))}` : ''}</span></div>
     <div class="teams">${teamRow(a, lead === 'b')}${teamRow(b, lead === 'a')}</div>
-    <div class="card-foot">${watch}${altStreams(rest, main)}<span class="bo">${esc(boLabel(m))}</span></div>
+    ${mapStrip(m, a, b)}
+    <div class="card-foot">${watch}${altStreams(rest, main)}<span class="more">Detay${icon('next')}</span></div>
   </article>`;
 }
 
@@ -256,40 +260,33 @@ function matchRow(m, { withDate = false } = {}) {
   const begin = Date.parse(m.begin_at);
   const until = begin - Date.now();
 
-  let timeNote = '';
-  if (live) timeNote = '<small class="soon">Canlı</small>';
-  else if (withDate && begin) timeNote = `<small>${esc(dayName(new Date(begin)) ?? fmtShort.format(begin))}</small>`;
-  else if (!finished && begin && until <= 0) timeNote = '<small class="soon">Başlamak üzere</small>';
-  else if (!finished && begin && until < 86_400_000) {
-    timeNote = `<small class="${until < 3_600_000 ? 'soon' : ''}">${esc(relative(until))}</small>`;
-  }
+  let note = '';
+  if (live) note = '<small class="soon">Canlı</small>';
+  else if (withDate && begin) note = `<small>${esc(shortDate(begin))}</small>`;
+  else if (!finished && begin && until <= 0) note = '<small class="soon">Başlamak üzere</small>';
+  else if (!finished && begin && until < 86_400_000) note = `<small class="${until < 3_600_000 ? 'soon' : ''}">${esc(relative(until))}</small>`;
 
   const winA = finished && m.winner_id != null && m.winner_id === a.id;
   const winB = finished && m.winner_id != null && m.winner_id === b.id;
-  const side = (t, cls, lost) =>
-    `<div class="side ${cls}${lost ? ' lose' : ''}${t.tbd ? ' tbd' : ''}">${teamEl(t, { rev: cls === 'a' })}</div>`;
+  const side = (t, cls, lost) => `<div class="side ${cls}${lost ? ' lose' : ''}${t.tbd ? ' tbd' : ''}">${teamEl(t, { rev: cls === 'a' })}</div>`;
   const mid = finished || live
     ? `<div class="mid score${live ? ' live' : ''}"><span class="${winB ? 'l' : ''}">${esc(a.score ?? 0)}</span><span class="l">:</span><span class="${winA ? 'l' : ''}">${esc(b.score ?? 0)}</span></div>`
     : '<div class="mid">vs</div>';
-
-  const tags = [
-    m.forfeit && '<span class="tag">Hükmen</span>',
-    m.draw && '<span class="tag">Berabere</span>',
-  ].filter(Boolean).join('');
-  const sub = subtitle(m);
+  const tags = [m.forfeit && '<span class="tag">Hükmen</span>', m.draw && '<span class="tag">Berabere</span>'].filter(Boolean).join('');
   const action = main
-    ? `<a class="stream-link stretched" href="${esc(main.url)}" target="_blank" rel="noopener"
+    ? `<a class="stream-btn" href="${esc(main.url)}" target="_blank" rel="noopener"
          aria-label="${esc(`${a.name} - ${b.name}: ${platform(main.url)} yayınını aç (yeni sekme)`)}">${PLAY}${esc(platform(main.url))}</a>`
     : '';
 
-  return `<article class="row${main ? ' clickable' : ''}${live ? ' is-live' : ''}">
-    <div class="row-time">${begin ? fmtTime.format(begin) : '—'}${timeNote}</div>
+  return `<article class="row${live ? ' is-live' : ''}">
+    <a class="stretched" href="${matchHash(m.id)}" aria-label="${esc(`${a.name} - ${b.name} maç detayı`)}"></a>
+    <div class="row-time">${begin ? fmtTime.format(begin) : '—'}${note}</div>
     <div class="row-match">${side(a, 'a', winB)}${mid}${side(b, 'b', winA)}</div>
     <div class="row-meta">
-      <span class="league" title="${esc([m.league?.name, sub].filter(Boolean).join(' · '))}">${esc(m.league?.name)}${sub ? ` · ${esc(sub)}` : ''}</span>
-      <span class="sub">${gameIcon(m.game, 'sm')}<span class="extra">${esc(boLabel(m))}</span>${tierBadge(m.tournament?.tier)}${tags}</span>
+      <span class="league" title="${esc([m.league?.name, subtitle(m)].filter(Boolean).join(' · '))}">${esc(m.league?.name)}${subtitle(m) ? ` · ${esc(subtitle(m))}` : ''}</span>
+      <span class="sub">${tierBadge(m.tournament?.tier)}<span class="extra">${esc([boLabel(m), m.stage].filter(Boolean).join(' · '))}</span>${tags}</span>
     </div>
-    <div class="row-action">${action}</div>
+    <div class="row-action">${action}${icon('next', 'chev')}</div>
   </article>`;
 }
 
@@ -309,13 +306,11 @@ function byDay(items) {
   });
 }
 
-function dayList(items) {
-  return byDay(items).map(({ title, note, list }) => `
-    <section class="day">
-      <h2 class="day-title">${esc(title)} <span>${note ? `${esc(note)} · ` : ''}${list.length} maç</span></h2>
-      <div class="list">${list.map(m => matchRow(m)).join('')}</div>
-    </section>`).join('');
-}
+const dayList = items => byDay(items).map(({ title, note, list }) => `
+  <section class="day">
+    <h2 class="day-title">${esc(title)} <span>${note ? `${esc(note)} · ` : ''}${list.length} maç</span></h2>
+    <div class="list">${list.map(m => matchRow(m)).join('')}</div>
+  </section>`).join('');
 
 function liveView(items) {
   if (!items.length) {
@@ -324,29 +319,22 @@ function liveView(items) {
     if (next) {
       const [a, b] = sides(next);
       const when = Date.parse(next.begin_at);
-      body = `Sıradaki: <b>${esc(a.name)} – ${esc(b.name)}</b> (${esc(gameInfo(next.game).short)})${when ? `, ${esc(relative(when - Date.now()))}` : ''}.
-        <a href="${routeHash({ tab: 'yaklasan' })}">Fikstüre git</a>`;
+      body = `Sıradaki: <a href="${matchHash(next.id)}"><b>${esc(a.name)} – ${esc(b.name)}</b></a>${when ? `, ${esc(relative(when - Date.now()))}` : ''}.`;
     }
     return empty('live', 'Şu anda canlı maç yok', body);
   }
   const sorted = [...items].sort((x, y) => tierRank(x) - tierRank(y));
-  return `<div class="section-head"><h1>Şu an canlı</h1><p>${items.length} maç · Karta tıkla, resmi yayında izle</p></div>
+  return `<div class="section-head"><h1>Şu an canlı</h1><p>${items.length} maç · Maça tıkla, detayları gör</p></div>
     <div class="grid">${sorted.map(liveCard).join('')}</div>`;
 }
 
-function upcomingView(items) {
-  if (!items.length) return empty('calendar', 'Yaklaşan maç bulunamadı');
-  return dayList(items);
-}
+const upcomingView = items => (items.length ? dayList(items) : empty('calendar', 'Yaklaşan maç bulunamadı'));
+const resultsView = items => (items.length ? dayList(items) : empty('results', 'Sonuç bulunamadı'));
 
-function resultsView(items) {
-  if (!items.length) return empty('results', 'Sonuç bulunamadı');
-  return dayList(items);
-}
-
-function standingsTable(t) {
+function standingsTable(t, highlight = new Set()) {
   const rows = t.standings ?? [];
   if (!rows.length) return empty('trophy', 'Puan tablosu henüz yok', 'Turnuva ilerledikçe sıralama burada görünecek.');
+  const cls = s => [s.rank <= 3 && 'top', highlight.has(s.team?.id) && 'hl'].filter(Boolean).join(' ');
 
   if (rows[0].wins == null) {
     const result = s => {
@@ -355,12 +343,10 @@ function standingsTable(t) {
       const date = lm.begin_at ? ` <span class="muted">${esc(fmtShort.format(Date.parse(lm.begin_at)))}</span>` : '';
       if (lm.status === 'running') return '<span class="result-pill live">Oynuyor</span>';
       if (lm.status !== 'finished') return `<span class="result-pill lost">Sırada</span>${date}`;
-      return lm.winner_id === s.team?.id
-        ? `<span class="result-pill won">Galip</span>${date}`
-        : `<span class="result-pill lost">Mağlup</span>${date}`;
+      return lm.winner_id === s.team?.id ? `<span class="result-pill won">Galip</span>${date}` : `<span class="result-pill lost">Mağlup</span>${date}`;
     };
     return `<table class="standings"><thead><tr><th>#</th><th class="team">Takım</th><th>Son maç</th></tr></thead><tbody>
-      ${rows.map(s => `<tr class="${s.rank <= 3 ? 'top' : ''}"><td class="rank">${esc(s.rank)}</td>
+      ${rows.map(s => `<tr class="${cls(s)}"><td class="rank">${esc(s.rank)}</td>
         <td class="team">${teamEl(s.team, { size: 'sm' })}</td><td>${result(s)}</td></tr>`).join('')}
     </tbody></table>`;
   }
@@ -372,15 +358,15 @@ function standingsTable(t) {
     return `<span class="${d > 0 ? 'pos' : d < 0 ? 'neg' : 'muted'}">${d > 0 ? '+' : d < 0 ? '−' : ''}${Math.abs(d)}</span>`;
   };
   return `<table class="standings"><thead><tr><th>#</th><th class="team">Takım</th><th class="hide-sm" title="Oynanan">O</th>
-      <th title="Galibiyet">G</th><th title="Mağlubiyet">M</th>${ties ? '<th title="Beraberlik">B</th>' : ''}<th title="Oyun / harita averajı">Av.</th></tr></thead><tbody>
-    ${rows.map(s => `<tr class="${s.rank <= 3 ? 'top' : ''}"><td class="rank">${esc(s.rank)}</td>
+      <th title="Galibiyet">G</th><th title="Mağlubiyet">M</th>${ties ? '<th title="Beraberlik">B</th>' : ''}<th title="Harita averajı">Av.</th></tr></thead><tbody>
+    ${rows.map(s => `<tr class="${cls(s)}"><td class="rank">${esc(s.rank)}</td>
       <td class="team">${teamEl(s.team, { size: 'sm' })}</td>
       <td class="hide-sm muted">${esc(s.total ?? s.wins + s.losses)}</td><td class="w">${esc(s.wins)}</td><td class="muted">${esc(s.losses)}</td>
       ${ties ? `<td class="muted">${esc(s.ties ?? 0)}</td>` : ''}<td>${diff(s)}</td></tr>`).join('')}
   </tbody></table>`;
 }
 
-function leaguePanel(t) {
+function tournamentPanel(t) {
   const d = state.data;
   const own = m => m.tournament?.id === t.id;
   const live = d.running.filter(own);
@@ -388,14 +374,13 @@ function leaguePanel(t) {
   const recent = d.past.filter(own).slice(0, 6);
   const dates = [t.begin_at, t.end_at].map(v => (v ? fmtShort.format(Date.parse(v)) : '?')).join(' – ');
   const list = (title, items) => (items.length
-    ? `<h3>${title}</h3><div class="list">${items.map(m => matchRow(m, { withDate: true })).join('')}</div>`
-    : '');
+    ? `<h3>${title}</h3><div class="list">${items.map(m => matchRow(m, { withDate: true })).join('')}</div>` : '');
 
   return `<section class="panel">
     <div class="panel-head">${logo(t.league, 'lg')}
       <div><h2>${esc(t.league?.name ?? t.name)}</h2>
-        <p>${gameTag(t.game)}<span>${esc([t.serie, t.name].filter(Boolean).join(' · '))}</span>
-          <span class="num">${esc(dates)}</span>${t.prizepool ? `<span>Ödül: ${esc(prize(t.prizepool))}</span>` : ''}${tierBadge(t.tier)}</p>
+        <p><span>${esc([t.serie, t.name].filter(Boolean).join(' · '))}</span>
+          <span class="num">${icon('calendar')}${esc(dates)}</span>${t.prizepool ? `<span>${icon('trophy')}${esc(prize(t.prizepool))}</span>` : ''}${tierBadge(t.tier)}</p>
       </div>
     </div>
     <h3>Puan durumu</h3>
@@ -404,94 +389,292 @@ function leaguePanel(t) {
   </section>`;
 }
 
-function leaguesView(items) {
-  if (!items.length) return empty('trophy', 'Aktif lig bulunamadı');
+function tournamentsView(items) {
+  if (!items.length) return empty('trophy', 'Aktif turnuva bulunamadı');
   const sorted = [...items].sort((x, y) => tierRank(x) - tierRank(y) || norm(x.league?.name).localeCompare(norm(y.league?.name), 'tr'));
+  const current = sorted.find(t => t.id === state.id) ?? sorted[0];
+  const label = t => [t.serie, t.name].filter(Boolean).join(' · ');
 
   const groups = new Map();
   for (const t of sorted) {
-    const slug = t.game?.slug ?? 'other';
-    if (!groups.has(slug)) groups.set(slug, []);
-    groups.get(slug).push(t);
+    const key = tierKey(t);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(t);
   }
-  const order = slug => (GAME_ORDER.includes(slug) ? GAME_ORDER.indexOf(slug) : 99);
-  const grouped = [...groups].sort(([x], [y]) => order(x) - order(y));
-  const current = sorted.find(t => t.id === state.tournament) ?? grouped[0][1][0];
-  const label = t => [t.serie, t.name].filter(Boolean).join(' · ');
-
-  // Oyun adları İngilizce; lang="en" büyük harfe çevirirken "İ" oluşmasını önler.
-  const aside = grouped.map(([, list]) => `
-    <div class="league-group"><h3 lang="en">${gameTag(list[0].game, { full: true })}</h3>
-      ${list.map(t => `<a class="league-item" href="${routeHash({ tournament: t.id })}" aria-current="${t.id === current.id}">
+  const groupTitle = key => (key === 'other' ? 'Diğer' : `${key.toUpperCase()} seviye`);
+  const aside = [...groups].map(([key, list]) => `
+    <div class="league-group"><h3>${esc(groupTitle(key))}</h3>
+      ${list.map(t => `<a class="league-item" href="${listHash({ view: 'turnuvalar', id: t.id })}" aria-current="${t.id === current.id}">
         ${logo(t.league)}<span class="txt"><b>${esc(t.league?.name ?? t.name)}</b><small>${esc(label(t))}</small></span>${tierBadge(t.tier)}</a>`).join('')}
     </div>`).join('');
-
-  const select = grouped.map(([, list]) => `<optgroup label="${esc(gameInfo(list[0].game).name)}" lang="en">
+  const select = [...groups].map(([key, list]) => `<optgroup label="${esc(groupTitle(key))}">
     ${list.map(t => `<option value="${t.id}"${t.id === current.id ? ' selected' : ''}>${esc(`${t.league?.name ?? ''} — ${label(t)}`)}</option>`).join('')}
   </optgroup>`).join('');
 
   return `<div class="leagues">
-    <aside class="league-list" aria-label="Aktif ligler">${aside}</aside>
+    <aside class="league-list" aria-label="Aktif turnuvalar">${aside}</aside>
     <div class="league-main">
-      <select class="league-select" id="league-select" aria-label="Lig seç">${select}</select>
-      ${leaguePanel(current)}
+      <select class="league-select" id="league-select" aria-label="Turnuva seç">${select}</select>
+      ${tournamentPanel(current)}
+    </div>
+  </div>`;
+}
+
+/* ---------- Maç detayı ---------- */
+function ensureTeams(force = false) {
+  if (state.teamsLoading || (state.teams && !force)) return;
+  state.teamsLoading = fetch(`${TEAMS_URL}?t=${Date.now()}`, { cache: 'no-store' })
+    .then(res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    })
+    .then(json => { state.teams = json; })
+    .catch(err => {
+      console.error('Takım verisi yüklenemedi:', err);
+      state.teams ??= { teams: {}, h2h: {}, failed: true };
+    })
+    .finally(() => {
+      state.teamsLoading = null;
+      if (state.view === 'mac') render();
+    });
+}
+
+const block = (iconName, title, body, note = '') =>
+  `<section class="block"><h2 class="block-title">${icon(iconName)}${title}${note ? `<small>${note}</small>` : ''}</h2>${body}</section>`;
+const loadingBlock = (iconName, title) => block(iconName, title, '<div class="loading sm"><span class="spinner"></span>Yükleniyor…</div>');
+
+function heroTeam(t, info, cls, won) {
+  const loc = info?.location ? `<span class="loc">${flag(info.location)}${esc(info.location)}</span>` : '';
+  return `<div class="hero-team ${cls}${won ? ' won' : ''}">${teamEl(t, { size: 'xl', cls: 'stack' })}${loc}</div>`;
+}
+
+function hero(m, a, b, ta, tb) {
+  const live = m.status === 'running';
+  const finished = m.status === 'finished';
+  const begin = Date.parse(m.begin_at);
+  const until = begin - Date.now();
+  const winA = finished && m.winner_id === a.id;
+  const winB = finished && m.winner_id === b.id;
+  const status = live
+    ? '<span class="badge-live"><i></i>CANLI</span>'
+    : finished ? `<span class="status done">${icon('results')}Bitti</span>`
+    : m.status === 'canceled' ? '<span class="status">İptal</span>'
+    : `<span class="status soon">${icon('clock')}${begin ? (until > 0 ? `${esc(relative(until))} başlıyor` : 'Başlamak üzere') : 'Tarih belirlenmedi'}</span>`;
+  const score = live || finished
+    ? `<div class="big-score num"><span class="${winB ? 'dim' : ''}">${esc(a.score ?? 0)}</span><i>:</i><span class="${winA ? 'dim' : ''}">${esc(b.score ?? 0)}</span></div>`
+    : '<div class="big-score vs">VS</div>';
+  const [main, ...rest] = streamsOf(m);
+  const watch = main
+    ? `<div class="hero-watch">
+        <a class="btn primary" href="${esc(main.url)}" target="_blank" rel="noopener">${PLAY}${live ? 'Canlı izle' : 'Yayına git'} · ${esc(platform(main.url))}${main.lang ? ` ${esc(main.lang.toUpperCase())}` : ''}</a>
+        ${rest.slice(0, 5).map(s => `<a class="btn${s.lang === 'tr' ? ' tr' : ''}" href="${esc(s.url)}" target="_blank" rel="noopener">${icon('tv')}${esc(platform(s.url))}${s.lang ? ` ${esc(s.lang.toUpperCase())}` : ''}</a>`).join('')}
+      </div>`
+    : '<div class="hero-watch"><span class="muted">Bu maç için yayın bilgisi yok.</span></div>';
+  const tour = state.data.tournaments.some(t => t.id === m.tournament?.id)
+    ? `<a href="${listHash({ view: 'turnuvalar', tier: 'all', id: m.tournament.id })}">${esc(m.league?.name)}</a>`
+    : esc(m.league?.name);
+
+  return `<section class="hero${live ? ' is-live' : ''}">
+    <div class="hero-top">${logo(m.league, 'sm')}<span class="hero-event">${tour}${subtitle(m) ? ` · ${esc(subtitle(m))}` : ''}</span>${tierBadge(m.tournament?.tier)}</div>
+    ${m.stage ? `<div class="hero-stage">${esc(m.stage)}</div>` : ''}
+    <div class="hero-main">
+      ${heroTeam(a, ta, 'a', winA)}
+      <div class="hero-center">${status}${score}
+        <span class="hero-when">${esc([boLabel(m), begin ? `${shortDate(begin)} ${fmtTime.format(begin)}` : ''].filter(Boolean).join(' · '))}</span>
+      </div>
+      ${heroTeam(b, tb, 'b', winB)}
+    </div>
+    ${watch}
+  </section>`;
+}
+
+function mapsBlock(m, a, b) {
+  if (!m.games?.length) return '';
+  const rows = m.games.map(g => {
+    const winner = g.winner_id == null ? null : g.winner_id === a.id ? a : g.winner_id === b.id ? b : null;
+    const side = winner === a ? 'won-a' : winner === b ? 'won-b' : '';
+    const pending = g.status === 'running' ? '<span class="result-pill live">Oynanıyor</span>'
+      : g.status === 'finished' ? '' : '<span class="muted">Oynanmadı</span>';
+    const len = g.length ? `<span class="map-len">${icon('clock')}${Math.round(g.length / 60)} dk</span>` : '';
+    return `<div class="map-row ${side}${g.status === 'running' ? ' live' : ''}">
+      <span class="map-no">${icon('map')}Harita ${esc(g.position)}</span>
+      <span class="map-win">${winner ? `${teamEl(winner, { size: 'sm' })}<span class="muted">kazandı</span>` : pending}</span>${len}
+    </div>`;
+  }).join('');
+  return block('map', 'Haritalar', `<div class="map-list">${rows}</div>`, esc(boLabel(m)));
+}
+
+function compareBlock(a, b, ta, tb) {
+  if (!state.teams) return loadingBlock('chart', 'Karşılaştırma');
+  const sa = ta?.stats;
+  const sb = tb?.stats;
+  if (!sa?.played && !sb?.played) {
+    return block('chart', 'Karşılaştırma', '<p class="muted pad">Bu takımlar için son dönemde maç kaydı yok.</p>');
+  }
+  const days = state.data.range?.days_history ?? 30;
+  const pct = (x, y) => (x + y ? Math.round((x / (x + y)) * 100) : null);
+  const row = (iconName, label, va, vb, show = v => v, bar = true) => {
+    const has = va != null && vb != null;
+    const lead = !has || va === vb ? null : va > vb ? 'a' : 'b';
+    const share = has && va + vb > 0 ? Math.round((va / (va + vb)) * 100) : 50;
+    return `<div class="cmp-row">
+      <span class="v a${lead === 'a' ? ' lead' : ''}">${va == null ? '—' : show(va, 'a')}</span>
+      <div class="cmp-mid"><span class="lbl">${icon(iconName)}${label}</span>
+        ${bar ? `<div class="bar" aria-hidden="true"><i class="ba" style="width:${share}%"></i><i class="bb" style="width:${100 - share}%"></i></div>` : ''}</div>
+      <span class="v b${lead === 'b' ? ' lead' : ''}">${vb == null ? '—' : show(vb, 'b')}</span>
+    </div>`;
+  };
+  const streak = s => (s?.streak ? (s.streak.won ? s.streak.n : -s.streak.n) : null);
+  const form = t => `<div class="form">${(t?.form ?? []).map(f =>
+    `<span class="fp ${f.won ? 'w' : 'l'}" title="${esc(`${f.won ? 'Galibiyet' : 'Mağlubiyet'} · ${f.opp.name} ${f.score[0]}–${f.score[1]} · ${fmtShort.format(Date.parse(f.at))}`)}">${f.won ? 'G' : 'M'}</span>`).join('') || '<span class="muted">—</span>'}</div>`;
+
+  const body = `<div class="cmp">
+    <div class="cmp-head"><span class="ca">${teamEl(a, { size: 'sm' })}</span><span class="cb">${teamEl(b, { size: 'sm', rev: true })}</span></div>
+    ${row('trophy', 'Galibiyet oranı', sa?.played ? pct(sa.wins, sa.losses) : null, sb?.played ? pct(sb.wins, sb.losses) : null, v => `${v}%`)}
+    ${row('target', 'Galibiyet – Mağlubiyet', sa?.played ? sa.wins : null, sb?.played ? sb.wins : null,
+      (v, side) => { const s = side === 'a' ? sa : sb; return `${s.wins}–${s.losses}`; })}
+    ${row('percent', 'Harita kazanma', sa?.played ? pct(sa.map_wins, sa.map_losses) : null, sb?.played ? pct(sb.map_wins, sb.map_losses) : null,
+      (v, side) => { const s = side === 'a' ? sa : sb; return `${v}%<small>${s.map_wins}–${s.map_losses}</small>`; })}
+    ${row('flame', 'Seri', streak(sa), streak(sb), v => (v > 0 ? `<span class="pos">${v} G</span>` : `<span class="neg">${-v} M</span>`), false)}
+    ${row('calendar', 'Oynanan maç', sa?.played ?? null, sb?.played ?? null)}
+    <div class="cmp-row form-row">${form(ta)}<span class="lbl">${icon('history')}Son 5 maç</span>${form(tb)}</div>
+  </div>`;
+  return block('chart', 'Karşılaştırma', body, `Son ${days} gün`);
+}
+
+function h2hBlock(m, a, b) {
+  if (!state.teams) return loadingBlock('swords', 'Aralarındaki maçlar');
+  if (a.id == null || b.id == null) return '';
+  const days = state.data.range?.days_history ?? 30;
+  const list = (state.teams.h2h?.[pairKey(a.id, b.id)] ?? []).filter(x => x.id !== m.id);
+  if (!list.length) return block('swords', 'Aralarındaki maçlar', `<p class="muted pad">Son ${days} günde karşılaşmadılar.</p>`);
+  const aw = list.filter(x => x.winner_id === a.id).length;
+  const bw = list.filter(x => x.winner_id === b.id).length;
+  const rows = list.slice(0, 5).map(x => {
+    const linked = state.data.past.some(p => p.id === x.id);
+    const sa = x.scores[a.id] ?? 0;
+    const sb = x.scores[b.id] ?? 0;
+    const inner = `<time>${esc(fmtShort.format(Date.parse(x.at)))}</time><span class="ev">${esc(x.event ?? '')}</span>
+      <span class="sc num"><b class="${x.winner_id === a.id ? '' : 'dim'}">${sa}</b>–<b class="${x.winner_id === b.id ? '' : 'dim'}">${sb}</b></span>`;
+    return linked ? `<a class="h2h-row" href="${matchHash(x.id)}">${inner}</a>` : `<div class="h2h-row">${inner}</div>`;
+  }).join('');
+  const body = `<div class="h2h-sum">${logo(a)}<span class="num"><b class="${aw >= bw ? '' : 'dim'}">${aw}</b><i>–</i><b class="${bw >= aw ? '' : 'dim'}">${bw}</b></span>${logo(b)}</div>
+    <div class="h2h-list">${rows}</div>`;
+  return block('swords', 'Aralarındaki maçlar', body, `Son ${days} gün · ${list.length} maç`);
+}
+
+function rosterList(t, info) {
+  const players = info?.players ?? [];
+  const items = players.length
+    ? players.map(p => {
+      const url = safeUrl(p.liquipedia);
+      const nick = url
+        ? `<a class="p-nick" href="${esc(url)}" target="_blank" rel="noopener" title="${esc(`${p.name} · Liquipedia`)}">${esc(p.name)}</a>`
+        : `<span class="p-nick">${esc(p.name)}</span>`;
+      const real = [p.first_name, p.last_name].filter(Boolean).join(' ');
+      return `<li class="player">${logo(p, 'pl')}<div class="p-txt">${nick}<small>${flag(p.nationality)}${esc(real)}</small></div>${p.role ? `<span class="role" lang="en">${esc(p.role)}</span>` : ''}</li>`;
+    }).join('')
+    : '<li class="muted pad">Kadro bilgisi yok.</li>';
+  return `<div class="roster"><div class="roster-head">${teamEl(t, { size: 'sm' })}</div><ul>${items}</ul></div>`;
+}
+
+function rostersBlock(a, b, ta, tb) {
+  if (!state.teams) return loadingBlock('users', 'Kadrolar');
+  if (a.tbd && b.tbd) return '';
+  return block('users', 'Kadrolar', `<div class="rosters">${rosterList(a, ta)}${rosterList(b, tb)}</div>`);
+}
+
+function recentList(t, info) {
+  const form = info?.form ?? [];
+  const items = form.length
+    ? form.map(f => {
+      const linked = state.data.past.some(p => p.id === f.id);
+      const inner = `<span class="fp ${f.won ? 'w' : 'l'}">${f.won ? 'G' : 'M'}</span>${logo(f.opp, 'sm')}<span class="opp">${esc(f.opp.name)}</span>
+        <span class="sc num">${f.score[0]}–${f.score[1]}</span><time>${esc(fmtShort.format(Date.parse(f.at)))}</time>`;
+      return linked ? `<li><a href="${matchHash(f.id)}">${inner}</a></li>` : `<li><div>${inner}</div></li>`;
+    }).join('')
+    : '<li class="muted pad">Kayıt yok.</li>';
+  return `<div class="recent"><div class="roster-head">${teamEl(t, { size: 'sm' })}</div><ul>${items}</ul></div>`;
+}
+
+function recentBlock(a, b, ta, tb) {
+  if (!state.teams) return loadingBlock('history', 'Son maçlar');
+  if (a.tbd && b.tbd) return '';
+  return block('history', 'Son maçlar', `<div class="recents">${recentList(a, ta)}${recentList(b, tb)}</div>`);
+}
+
+function standingBlock(m, a, b) {
+  const t = state.data.tournaments.find(x => x.id === m.tournament?.id);
+  if (!t?.standings?.length) return '';
+  const ids = new Set([a.id, b.id].filter(id => id != null));
+  const link = `<a class="more-link" href="${listHash({ view: 'turnuvalar', tier: 'all', id: t.id })}">Tüm turnuva${icon('next')}</a>`;
+  return block('list', 'Puan durumu', standingsTable(t, ids) + link, esc(t.name));
+}
+
+function matchView(id) {
+  const m = findMatch(id);
+  const back = `<a class="back" href="${esc(state.listHash)}">${icon('back')}Geri</a>`;
+  if (!m) return `<div class="detail">${back}${empty('error', 'Maç bulunamadı', 'Bu maç artık listede değil.')}</div>`;
+  ensureTeams();
+  const [a, b] = sides(m);
+  const ta = state.teams?.teams?.[a.id];
+  const tb = state.teams?.teams?.[b.id];
+  document.title = `${a.name} vs ${b.name} — CS2 Esports Center`;
+  return `<div class="detail">
+    ${back}
+    ${hero(m, a, b, ta, tb)}
+    <div class="detail-cols">
+      <div class="col">${mapsBlock(m, a, b)}${compareBlock(a, b, ta, tb)}${rostersBlock(a, b, ta, tb)}</div>
+      <div class="col">${h2hBlock(m, a, b)}${standingBlock(m, a, b)}${recentBlock(a, b, ta, tb)}</div>
     </div>
   </div>`;
 }
 
 /* ---------- Yönlendirme ve çizim ---------- */
-function routeHash(patch = {}) {
-  const next = { tab: state.tab, game: state.game, tournament: null, ...patch };
-  let hash = `#/${next.tab}`;
-  if (next.game !== 'all' || next.tournament) hash += `/${encodeURIComponent(next.game)}`;
-  if (next.tab === 'ligler' && next.tournament) hash += `/${next.tournament}`;
+function listHash(patch = {}) {
+  const next = { view: LIST_VIEWS.includes(state.view) ? state.view : 'canli', tier: state.tier, id: null, ...patch };
+  let hash = `#/${next.view}`;
+  if (next.tier !== 'all' || next.id) hash += `/${next.tier}`;
+  if (next.view === 'turnuvalar' && next.id) hash += `/${next.id}`;
   return hash;
 }
 
 function parseHash() {
-  const [tab, game, id] = location.hash.replace(/^#\/?/, '').split('/');
+  const [v, a, b] = location.hash.replace(/^#\/?/, '').split('/');
+  if (v === 'mac') return { view: 'mac', id: Number(a) || null };
   return {
-    tab: TABS.includes(tab) ? tab : null,
-    game: game ? decodeURIComponent(game) : 'all',
-    tournament: id ? Number(id) : null,
+    view: LIST_VIEWS.includes(v) ? v : null,
+    tier: a && (a === 'all' || TIERS.some(([key]) => key === a)) ? a : 'all',
+    id: b ? Number(b) : null,
   };
 }
 
 function go(patch) {
-  const hash = routeHash(patch);
+  const hash = listHash(patch);
   if (location.hash === hash) render();
   else location.hash = hash;
 }
 
 function renderNav() {
-  const live = filterItems(state.data?.running ?? [], true).length;
+  const live = filterItems(state.data?.running ?? []).length;
   $('#live-count').textContent = live || '';
   document.body.classList.toggle('has-live', live > 0);
+  const current = state.view === 'mac' ? state.listHash.replace(/^#\/?/, '').split('/')[0] : state.view;
   for (const a of document.querySelectorAll('.tabs a')) {
-    a.href = routeHash({ tab: a.dataset.tab });
-    if (a.dataset.tab === state.tab) a.setAttribute('aria-current', 'page');
+    a.href = listHash({ view: a.dataset.tab });
+    if (a.dataset.tab === current) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   }
-  const toggle = $('#tier-toggle');
-  toggle.setAttribute('aria-pressed', String(state.bigOnly));
 }
 
-function renderGames(items) {
-  const d = state.data;
-  const meta = new Map();
-  for (const item of [...d.running, ...d.upcoming, ...d.past, ...d.tournaments]) {
-    if (item.game?.slug && !meta.has(item.game.slug)) meta.set(item.game.slug, item.game);
-  }
+function renderTiers(items) {
   const counts = new Map();
-  for (const item of items) counts.set(item.game?.slug, (counts.get(item.game?.slug) ?? 0) + 1);
-  const order = slug => (GAME_ORDER.includes(slug) ? GAME_ORDER.indexOf(slug) : 99);
-  const slugs = [...meta.keys()].sort((x, y) => order(x) - order(y));
-
-  const chip = (slug, text, count, icon = '') =>
-    `<button class="chip" type="button" data-game="${esc(slug)}" aria-pressed="${state.game === slug}" title="${esc(text)}">
-      ${icon}<span class="label">${esc(text)}</span><span class="n">${count}</span></button>`;
-  $('#games').innerHTML = chip('all', 'Tümü', items.length) +
-    slugs.map(slug => chip(slug, gameInfo(meta.get(slug)).short, counts.get(slug) ?? 0, gameIcon(meta.get(slug), 'sm'))).join('');
+  for (const item of items) counts.set(tierKey(item), (counts.get(tierKey(item)) ?? 0) + 1);
+  const chip = (key, text, count) =>
+    `<button class="chip t-${key}" type="button" data-tier="${key}" aria-pressed="${state.tier === key}">
+      ${key === 'all' ? '' : '<span class="tdot"></span>'}${esc(text)}<span class="n">${count}</span></button>`;
+  $('#tiers').innerHTML = chip('all', 'Tümü', items.length) +
+    TIERS.filter(([key]) => key !== 'other' || counts.get('other')).map(([key, text]) => chip(key, text, counts.get(key) ?? 0)).join('');
 }
 
 function renderFooter() {
@@ -501,11 +684,10 @@ function renderFooter() {
   const source = d.demo
     ? 'Demo veri'
     : `Veri: <a href="https://pandascore.co" target="_blank" rel="noopener">PandaScore</a>
-       · Takım sayfaları: <a href="https://liquipedia.net" target="_blank" rel="noopener">Liquipedia</a>`;
+       · Takım ve oyuncu sayfaları: <a href="https://liquipedia.net/counterstrike/" target="_blank" rel="noopener">Liquipedia</a>`;
   $('#footer').innerHTML = `
-    <span>${source} · Son güncelleme ${at ? `${fmtTime.format(at)} (${esc(relative(at - Date.now()))})` : '—'}
-      · Son ${esc(d.range?.days_back ?? 7)} gün ve önümüzdeki ${esc(d.range?.days_ahead ?? 7)} gün</span>
-    <span>Maça tıklayınca resmi yayın yeni sekmede açılır. Yayınlar ilgili kanallara aittir.</span>`;
+    <span>${source} · Son güncelleme ${at ? `${fmtTime.format(at)} (${esc(relative(at - Date.now()))})` : '—'}</span>
+    <span>Yayın bağlantıları resmi kanallara gider. CS2 Esports Center Valve ile bağlantılı değildir.</span>`;
 }
 
 function render() {
@@ -519,19 +701,25 @@ function render() {
     }
     return;
   }
-  state.tab ??= d.running.length ? 'canli' : 'yaklasan';
-  const source = { canli: d.running, yaklasan: d.upcoming, sonuclar: d.past, ligler: d.tournaments }[state.tab];
-  const views = { canli: liveView, yaklasan: upcomingView, sonuclar: resultsView, ligler: leaguesView };
-
+  state.view ??= d.running.length ? 'canli' : 'yaklasan';
   renderNav();
-  renderGames(filterItems(source, true));
+  renderFooter();
+  $('#filterbar').hidden = state.view === 'mac';
   const notice = d.demo
-    ? `<div class="notice"><span><b>Demo veri gösteriliyor.</b> Takım ve lig adları örnektir; yayın bağlantıları resmi kanallara gider.
-        Gerçek veride takım logoları görünür ve takıma tıklayınca Liquipedia sayfası açılır.
+    ? `<div class="notice"><span><b>Demo veri gösteriliyor.</b> Takım, oyuncu ve turnuva adları örnektir; yayın bağlantıları gerçek kanallara gider.
         Gerçek maçlar için depoya <code>PANDASCORE_TOKEN</code> secret'ını ekleyin.</span></div>`
     : '';
-  view.innerHTML = notice + views[state.tab](filterItems(source));
-  renderFooter();
+
+  if (state.view === 'mac') {
+    view.innerHTML = notice + matchView(state.id);
+    return;
+  }
+  document.title = TITLE;
+  state.listHash = location.hash.startsWith('#/') && !location.hash.startsWith('#/mac') ? location.hash : listHash();
+  const source = { canli: d.running, yaklasan: d.upcoming, sonuclar: d.past, turnuvalar: d.tournaments }[state.view];
+  const views = { canli: liveView, yaklasan: upcomingView, sonuclar: resultsView, turnuvalar: tournamentsView };
+  renderTiers(filterItems(source, true));
+  view.innerHTML = notice + views[state.view](filterItems(source));
 }
 
 function normalize(json) {
@@ -547,6 +735,8 @@ async function load() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     state.data = normalize(await res.json());
     state.error = null;
+    // Yeni yayın geldiyse açık maç detayının takım verisini de tazele.
+    if (state.teams && state.teams.generated_at !== state.data.generated_at) ensureTeams(true);
   } catch (err) {
     console.error('Veri yüklenemedi:', err);
     state.error = err;
@@ -557,7 +747,7 @@ async function load() {
 /* ---------- Olaylar ---------- */
 function setTheme(theme) {
   document.documentElement.dataset.theme = theme;
-  document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#0a0c11' : '#f5f6fa';
+  document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#0b0c0f' : '#f6f6f3';
 }
 
 $('#theme-toggle').addEventListener('click', () => {
@@ -573,16 +763,14 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
   render();
 });
 
-$('#tier-toggle').addEventListener('click', () => {
-  state.bigOnly = !state.bigOnly;
-  store.set('bigOnly', state.bigOnly ? '1' : '');
-  render();
-});
-
 let searchTimer;
 $('#search').addEventListener('input', e => {
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => { state.query = e.target.value; render(); }, 120);
+  searchTimer = setTimeout(() => {
+    state.query = e.target.value;
+    if (state.view === 'mac') location.hash = state.listHash;
+    else render();
+  }, 120);
 });
 
 document.addEventListener('keydown', e => {
@@ -592,23 +780,21 @@ document.addEventListener('keydown', e => {
   }
 });
 
-$('#games').addEventListener('click', e => {
+$('#tiers').addEventListener('click', e => {
   const chip = e.target.closest('.chip');
-  if (chip) go({ game: chip.dataset.game });
+  if (chip) go({ tier: chip.dataset.tier });
 });
 
 view.addEventListener('change', e => {
-  if (e.target.id === 'league-select') go({ tournament: Number(e.target.value) });
+  if (e.target.id === 'league-select') go({ view: 'turnuvalar', id: Number(e.target.value) });
 });
 
 view.addEventListener('click', e => {
   if (!e.target.closest('[data-action="clear"]')) return;
   e.preventDefault();
   state.query = '';
-  state.bigOnly = false;
-  store.set('bigOnly', '');
   $('#search').value = '';
-  go({ game: 'all' });
+  go({ tier: 'all' });
 });
 
 // Logo yüklenemezse baş harflerle değiştir.
@@ -623,16 +809,18 @@ document.addEventListener('error', e => {
   img.replaceWith(span);
 }, true);
 
-window.addEventListener('hashchange', () => {
+// Listeye geri dönünce kalınan yere kaydır.
+window.addEventListener('hashchange', e => {
+  scrollMemory.set(new URL(e.oldURL).hash, window.scrollY);
   Object.assign(state, parseHash());
   render();
-  window.scrollTo({ top: 0 });
+  window.scrollTo({ top: scrollMemory.get(location.hash) ?? 0 });
 });
 
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) load();
 });
 
-Object.assign(state, parseHash(), { bigOnly: store.get('bigOnly') === '1' });
+Object.assign(state, parseHash());
 load();
 setInterval(() => { if (!document.hidden) load(); }, REFRESH_MS);

@@ -23,25 +23,28 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Liquipedia eşleşmeleri çalıştırmalar arasında saklanır; aynı takım her seferinde sorgulanmaz.
-      - name: Liquipedia önbelleğini geri yükle
+      # Maç geçmişi, kadrolar ve Liquipedia eşleşmeleri çalıştırmalar arasında saklanır;
+      # böylece her seferinde yalnızca yeni veriler istenir.
+      - name: Önbelleği geri yükle
         uses: actions/cache/restore@v6
         with:
           path: cache
-          key: liquipedia-${{ github.run_id }}
-          restore-keys: liquipedia-
+          key: data-${{ github.run_id }}
+          restore-keys: |
+            data-
+            liquipedia-
 
       - name: PandaScore verisini çek
         run: node scripts/fetch-data.mjs
         env:
           PANDASCORE_TOKEN: ${{ secrets.PANDASCORE_TOKEN }}
 
-      - name: Liquipedia önbelleğini kaydet
-        if: hashFiles('cache/liquipedia.json') != ''
+      - name: Önbelleği kaydet
+        if: hashFiles('cache/**') != ''
         uses: actions/cache/save@v6
         with:
           path: cache
-          key: liquipedia-${{ hashFiles('cache/liquipedia.json') }}
+          key: data-${{ hashFiles('cache/**') }}
 
       - uses: actions/upload-pages-artifact@v5
         with:

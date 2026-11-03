@@ -1,32 +1,32 @@
-// PandaScore token'ı eklenmeden önce siteyi önizleyebilmek için kurgusal veri üretir.
-// Takım ve lig adları uydurmadır; yayın bağlantıları ilgili oyunların resmi kanallarıdır.
+// PandaScore token'ı eklenmeden önce siteyi önizleyebilmek için kurgusal CS2 verisi üretir.
+// Takım, oyuncu ve turnuva adları uydurmadır; yayın bağlantıları gerçek CS2 yayın kanallarıdır.
 
-const GAMES = [
-  { slug: 'league-of-legends', name: 'LoL', league: 'Pro Ligi', serie: 'Kış 2026', tournament: 'Normal Sezon', tier: 's', bo: 3,
-    streams: [['https://www.twitch.tv/riotgames', 'en', true], ['https://www.youtube.com/@lolesports', 'en', false]] },
-  { slug: 'cs-go', name: 'Counter-Strike 2', league: 'Masters Kupası', serie: 'Sonbahar 2026', tournament: 'Grup Aşaması', tier: 's', bo: 3,
-    streams: [['https://www.twitch.tv/pgl', 'en', true], ['https://www.twitch.tv/blast', 'en', false]] },
-  { slug: 'valorant', name: 'Valorant', league: 'Challengers', serie: 'Split 3 2026', tournament: 'Playoff', tier: 'a', bo: 3, bracket: true,
-    streams: [['https://www.twitch.tv/valorant', 'en', true]] },
-  { slug: 'dota-2', name: 'Dota 2', league: 'Pro Circuit', serie: 'Sonbahar 2026', tournament: 'Grup B', tier: 'a', bo: 3,
-    streams: [['https://www.twitch.tv/esl_dota2', 'en', true]] },
-  { slug: 'ow', name: 'Overwatch', league: 'Champions Serisi', serie: 'Aşama 4', tournament: 'Normal Sezon', tier: 'b', bo: 5,
-    streams: [['https://www.twitch.tv/ow_esports', 'en', true]] },
-  { slug: 'r6-siege', name: 'Rainbow 6 Siege', league: 'Pro League', serie: 'Aşama 3', tournament: 'Normal Sezon', tier: 'b', bo: 1,
-    streams: [['https://www.twitch.tv/rainbow6', 'en', true]] },
-  { slug: 'rl', name: 'Rocket League', league: 'Championship Series', serie: 'Sezon 2026', tournament: 'Bölgesel Açık', tier: 'c', bo: 5,
-    streams: [['https://www.twitch.tv/rocketleague', 'en', true]] },
+const TOURNAMENTS = [
+  { league: 'Masters Kupası', serie: 'Sonbahar 2026', name: 'Grup Aşaması', tier: 's', bo: 3, prize: '1000000 United States Dollar',
+    streams: [['https://www.twitch.tv/pgl', 'en', true], ['https://www.youtube.com/@PGLCS', 'en', false]] },
+  { league: 'Pro Ligi', serie: 'Sezon 24', name: 'Normal Sezon', tier: 'a', bo: 3, prize: '250000 United States Dollar',
+    streams: [['https://www.twitch.tv/blast', 'en', true]] },
+  { league: 'Challengers Serisi', serie: 'Avrupa 2026', name: 'Playoff', tier: 'b', bo: 3, bracket: true, prize: null,
+    streams: [['https://www.twitch.tv/pgl', 'en', true]] },
 ];
+
+const STAGES = ['Grup A, 1. tur', 'Grup B, 2. tur', 'Üst grup yarı finali', 'Alt grup çeyrek finali', 'Çeyrek final', 'Yarı final', 'Final'];
 
 const TEAMS = [
-  'Nova Esports', 'Crimson Wolves', 'Azure Dragons', 'Iron Foxes', 'Solar Kings', 'Night Owls', 'Vortex Gaming', 'Polar Bears',
-  'Steel Hawks', 'Black Mamba', 'Northern Lights', 'Ember Five', 'Atlas Club', 'Red Comet', 'Silent Storm', 'Golden Lynx',
-  'Phantom Unit', 'Echo Squad', 'Titan Forge', 'Blue Harbor', 'Wild Card', 'Neon Tigers', 'Cobalt Crew', 'Aurora Gaming',
-  'Anka Espor', 'Bozkurt Gaming', 'Pusula', 'Kuzgun', 'Tufan Esports', 'Kartal Five', 'Lunar Tide', 'Velvet Ravens',
-  'Obsidian', 'Sakura Blades', 'Frost Giants', 'Monarch', 'Rapid Pulse', 'Orbit Esports', 'Zenith', 'Hydra Six',
-  'Granite Gate', 'Kestrel GG', 'Desert Eagles', 'Maple Leaf GG', 'Pulse Gaming', 'Delta Squad', 'Mavi Yıldız', 'Volkan Esports',
-  'Sirius', 'Karayel', 'Poyraz', 'Aslan Five', 'Fırtına GG', 'Yakamoz', 'Ateş Kuşu', 'Demir Yumruk',
+  ['Nova Esports', 'NOVA', 'DK'], ['Crimson Wolves', 'CW', 'SE'], ['Azure Dragons', 'AZD', 'FR'], ['Iron Foxes', 'IRF', 'DE'],
+  ['Anka Espor', 'ANKA', 'TR'], ['Steel Hawks', 'SHK', 'PL'], ['Northern Lights', 'NL', 'FI'], ['Red Comet', 'RC', 'UA'],
+  ['Atlas Club', 'ATL', 'US'], ['Golden Lynx', 'GLX', 'BR'], ['Phantom Unit', 'PHU', 'EE'], ['Bozkurt Gaming', 'BZK', 'TR'],
+  ['Titan Forge', 'TTN', 'CZ'], ['Blue Harbor', 'BH', 'PT'], ['Echo Squad', 'ECO', 'KZ'], ['Silent Storm', 'SST', 'MN'],
 ];
+
+const NICK_START = ['ar', 'bel', 'cor', 'dex', 'el', 'fyn', 'gri', 'hak', 'isk', 'jol', 'kry', 'lum', 'mav', 'nyx', 'or', 'pyk',
+  'riz', 'sab', 'tav', 'umb', 'vex', 'wyl', 'xan', 'yuk', 'zar', 'kai', 'sev', 'ton', 'bra', 'qwe'];
+const NICK_END = ['', 'o', 'ix', 'en', 'y', 'ek', 'ro', 'zz', 'a', '1', 'k', 'th'];
+const FIRST = ['Mads', 'Erik', 'Lucas', 'Jonas', 'Emre', 'Kacper', 'Mikko', 'Oleksii', 'Tyler', 'Gabriel', 'Karl', 'Kaan',
+  'Tomas', 'Rui', 'Arman', 'Bat', 'Viktor', 'Noah', 'Mert', 'Felix', 'Hugo', 'Oskar', 'Daniel', 'Bora'];
+const LAST = ['Jensen', 'Lindqvist', 'Moreau', 'Becker', 'Yıldız', 'Nowak', 'Virtanen', 'Kovalenko', 'Brooks', 'Silva',
+  'Tamm', 'Aydın', 'Novak', 'Costa', 'Sadykov', 'Erdene', 'Holm', 'Weber', 'Demir', 'Larsen'];
+const ROLES = ['IGL', 'AWP', 'Rifler', 'Rifler', 'Entry'];
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -40,113 +40,138 @@ function rng(seed) {
   };
 }
 
-const acronym = name => name.split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 4).padEnd(2, name[1].toUpperCase());
 const iso = ms => new Date(ms).toISOString();
 const halfHour = ms => Math.round(ms / (30 * 60_000)) * 30 * 60_000;
 
 export function buildDemoData(now = Date.now()) {
-  const rand = rng(20261104);
+  const rand = rng(2026);
   const int = (a, b) => a + Math.floor(rand() * (b - a + 1));
+  const pick = list => list[int(0, list.length - 1)];
   const dayStart = Math.floor(now / DAY) * DAY;
-  let matchId = 1000;
-  let teamId = 1;
-  let pool = 0;
-  const running = [], upcoming = [], past = [], tournaments = [];
+  let matchId = 5000;
+  let playerId = 900;
 
-  GAMES.forEach((g, gi) => {
-    const teams = Array.from({ length: 8 }, () => {
-      const name = TEAMS[pool++ % TEAMS.length];
-      return { id: teamId++, name, acronym: acronym(name), image: null, image_dark: null };
-    });
-    const league = { id: 100 + gi, name: g.league, image: null };
-    const tournament = { id: 500 + gi, name: g.tournament, tier: g.tier };
-    const streams = g.streams.map(([url, lang, main]) => ({ url, lang, official: true, main }));
-    const win = Math.ceil(g.bo / 2);
-    const pair = () => {
-      const a = int(0, teams.length - 1);
-      const b = (a + int(1, teams.length - 1)) % teams.length;
-      return [teams[a], teams[b]];
+  const rosters = {};
+  const teams = TEAMS.map(([name, acronym, location], i) => {
+    const team = { id: i + 1, name, acronym, image: null, image_dark: null };
+    rosters[team.id] = {
+      ...team,
+      location,
+      players: ROLES.map(role => {
+        const nick = pick(NICK_START) + pick(NICK_END);
+        return {
+          id: playerId++,
+          name: nick[0].toUpperCase() + nick.slice(1),
+          first_name: pick(FIRST),
+          last_name: pick(LAST),
+          nationality: rand() < 0.75 ? location : pick(['DK', 'SE', 'TR', 'DE', 'FR', 'PL', 'UA', 'BR']),
+          role,
+          image: null,
+        };
+      }),
     };
-    const make = (status, begin, [a, b] = [], scores = []) => ({
+    return team;
+  });
+
+  const running = [], upcoming = [], history = [], tournaments = [];
+
+  TOURNAMENTS.forEach((def, ti) => {
+    const pool = teams.slice((ti * 5) % teams.length).concat(teams).slice(0, 8);
+    const league = { id: 100 + ti, name: def.league, image: null };
+    const tournament = { id: 500 + ti, name: def.name, tier: def.tier, prizepool: def.prize, region: 'EU' };
+    const streams = def.streams.map(([url, lang, main]) => ({ url, lang, official: true, main }));
+    const win = Math.ceil(def.bo / 2);
+    const pair = () => {
+      const a = int(0, pool.length - 1);
+      return [pool[a], pool[(a + int(1, pool.length - 1)) % pool.length]];
+    };
+    // Bo3 için harita harita sonuç: kazananın win, kaybedenin lose haritası, karışık sırayla
+    const mapsFor = (a, b, scores, status) => {
+      const order = [];
+      const left = [...scores];
+      while (left[0] + left[1] > 0) {
+        const side = left[0] && (!left[1] || rand() < 0.5) ? 0 : 1;
+        left[side]--;
+        order.push(side);
+      }
+      const games = order.map((side, i) => ({ position: i + 1, status: 'finished', winner_id: [a, b][side].id, length: int(1900, 3300) }));
+      if (status === 'running') games.push({ position: games.length + 1, status: 'running', winner_id: null, length: null });
+      while (games.length < def.bo) games.push({ position: games.length + 1, status: 'not_started', winner_id: null, length: null });
+      return games;
+    };
+    const make = (status, begin, [a, b] = [], scores = [null, null]) => ({
       id: matchId++,
+      stage: pick(STAGES),
       status,
       begin_at: iso(begin),
-      end_at: status === 'finished' ? iso(begin + g.bo * 40 * 60_000) : null,
-      bo: g.bo,
+      end_at: status === 'finished' ? iso(begin + def.bo * 45 * 60_000) : null,
+      bo: def.bo,
       type: 'best_of',
-      game: { slug: g.slug, name: g.name },
       league,
-      serie: g.serie,
+      serie: def.serie,
       tournament,
-      teams: [a, b].filter(Boolean).map((t, i) => ({ ...t, score: scores[i] ?? null })),
+      teams: [a, b].filter(Boolean).map((t, i) => ({ ...t, score: scores[i] })),
       winner_id: status === 'finished' ? (scores[0] > scores[1] ? a.id : b.id) : null,
       draw: false,
       forfeit: false,
       streams,
+      games: a && b && status !== 'not_started' ? mapsFor(a, b, scores, status) : [],
     });
 
-    const records = new Map(teams.map(t => [t.id, { team: t, wins: 0, losses: 0, game_wins: 0, game_losses: 0, last: null }]));
-    for (let i = 0; i < 12; i++) {
-      let begin = halfHour(dayStart - int(0, 6) * DAY + int(9, 19) * HOUR);
+    const records = new Map(pool.map(t => [t.id, { team: t, wins: 0, losses: 0, game_wins: 0, game_losses: 0, last: null }]));
+    for (let i = 0; i < 40; i++) {
+      let begin = halfHour(dayStart - int(0, 29) * DAY + int(12, 20) * HOUR);
       if (begin > now - 3 * HOUR) begin -= DAY;
-      const teamsAB = pair();
+      const ab = pair();
       const loser = int(0, win - 1);
       const scores = rand() < 0.5 ? [win, loser] : [loser, win];
-      const m = make('finished', begin, teamsAB, scores);
-      past.push(m);
-      teamsAB.forEach((t, side) => {
+      const m = make('finished', begin, ab, scores);
+      history.push(m);
+      if (begin < now - 10 * DAY) continue;
+      ab.forEach((t, side) => {
         const r = records.get(t.id);
         const won = m.winner_id === t.id;
-        r.wins += won; r.losses += !won;
-        r.game_wins += scores[side]; r.game_losses += scores[1 - side];
+        r.wins += won;
+        r.losses += !won;
+        r.game_wins += scores[side];
+        r.game_losses += scores[1 - side];
         if (!r.last || begin > Date.parse(r.last.begin_at)) r.last = { status: 'finished', winner_id: m.winner_id, begin_at: m.begin_at };
       });
     }
 
-    if (gi < 5) {
-      running.push(make('running', now - int(15, 75) * 60_000, pair(), [int(0, win - 1), int(0, win - 1)]));
-    }
+    const live = pair();
+    running.push(make('running', now - int(20, 80) * 60_000, live, [int(0, win - 1), int(0, win - 1)]));
 
-    for (let i = 0; i < 10; i++) {
-      let begin = i === 0 && gi === 0
+    for (let i = 0; i < 9; i++) {
+      let begin = i === 0 && ti === 0
         ? halfHour(now + 40 * 60_000)
-        : halfHour(dayStart + int(0, 6) * DAY + int(9, 19) * HOUR);
+        : halfHour(dayStart + int(0, 6) * DAY + int(12, 20) * HOUR);
       if (begin < now + 15 * 60_000) begin += DAY;
-      upcoming.push(make('not_started', begin, g.bracket && i === 9 ? [] : pair()));
+      upcoming.push(make('not_started', begin, def.bracket && i === 8 ? [] : pair()));
     }
 
     const standings = [...records.values()]
       .sort((a, b) => b.wins - a.wins || (b.game_wins - b.game_losses) - (a.game_wins - a.game_losses))
-      .map((r, i) => g.bracket
+      .map((r, i) => def.bracket
         ? { rank: i + 1, team: r.team, last_match: r.last }
         : { rank: i + 1, team: r.team, wins: r.wins, losses: r.losses, ties: null, total: r.wins + r.losses,
             game_wins: r.game_wins, game_losses: r.game_losses, last_match: null });
 
     tournaments.push({
       id: tournament.id,
-      name: g.tournament,
-      tier: g.tier,
-      begin_at: iso(dayStart - 10 * DAY),
-      end_at: iso(dayStart + 20 * DAY),
-      region: null,
-      prizepool: gi < 2 ? `${(gi + 1) * 250000} United States Dollar` : null,
-      has_bracket: Boolean(g.bracket),
-      game: { slug: g.slug, name: g.name },
+      name: def.name,
+      tier: def.tier,
+      begin_at: iso(dayStart - 12 * DAY),
+      end_at: iso(dayStart + 18 * DAY),
+      region: 'EU',
+      prizepool: def.prize,
+      has_bracket: Boolean(def.bracket),
       league,
-      serie: g.serie,
+      serie: def.serie,
       standings,
     });
   });
 
   const byTime = (a, b) => Date.parse(a.begin_at) - Date.parse(b.begin_at);
-  return {
-    generated_at: iso(now),
-    demo: true,
-    source: 'Demo',
-    range: { days_back: 7, days_ahead: 7 },
-    running: running.sort(byTime),
-    upcoming: upcoming.sort(byTime),
-    past: past.sort((a, b) => byTime(b, a)),
-    tournaments,
-  };
+  return { demo: true, running: running.sort(byTime), upcoming: upcoming.sort(byTime), history, tournaments, rosters };
 }
