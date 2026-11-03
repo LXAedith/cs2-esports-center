@@ -133,6 +133,9 @@ async function fetchLive() {
   const past = await pages('/matches/past', { ...filter, sort: '-begin_at' },
     last => time(last) < now - DAYS_BACK * DAY);
   console.log(`maçlar: ${running.length} canlı, ${upcoming.length} yaklaşan, ${past.length} geçmiş`);
+  const statuses = {};
+  for (const m of past) statuses[m.status] = (statuses[m.status] ?? 0) + 1;
+  console.log(`geçmiş ham aralık: ${past[0]?.begin_at} … ${past.at(-1)?.begin_at}, durumlar: ${JSON.stringify(statuses)}`);
 
   // Önce üst seviye turnuvalar, eşitlikte elimizde daha çok maçı olanlar.
   const matchCount = new Map();
