@@ -55,6 +55,7 @@ async function pages(path, params, stop = () => false) {
 }
 
 const time = m => Date.parse(m.begin_at ?? m.scheduled_at ?? '') || 0;
+const isoSec = ms => new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z');
 
 function slimTeam(t) {
   if (!t) return null;
@@ -130,12 +131,19 @@ async function fetchLive() {
   const running = await pages('/matches/running', { ...filter, sort: 'begin_at' });
   const upcoming = await pages('/matches/upcoming', { ...filter, sort: 'begin_at' },
     last => time(last) > now + DAYS_AHEAD * DAY);
-  const past = await pages('/matches/past', { ...filter, sort: '-begin_at' },
-    last => time(last) < now - DAYS_BACK * DAY);
+  // PandaScore, tarihi boş iptal maçlarını -begin_at sıralamasında başa koyuyor; bu yüzden yalnızca
+  // bitmiş maçları ve tarih aralığıyla istiyoruz. Aralık reddedilirse aralıksız denenir.
+  const pastParams = { ...filter, 'filter[status]': 'finished', sort: '-begin_at' };
+  const pastStop = last => time(last) > 0 && time(last) < now - DAYS_BACK * DAY;
+  let past;
+  try {
+    past = await pages('/matches/past', { ...pastParams, 'range[begin_at]': `${isoSec(now - DAYS_BACK * DAY)},${isoSec(now)}` }, pastStop);
+  } catch (err) {
+    if (!err.message.includes(' 400 ')) throw err;
+    console.warn(`range[begin_at] kabul edilmedi, aralıksız deneniyor: ${err.message}`);
+    past = await pages('/matches/past', pastParams, pastStop);
+  }
   console.log(`maçlar: ${running.length} canlı, ${upcoming.length} yaklaşan, ${past.length} geçmiş`);
-  const statuses = {};
-  for (const m of past) statuses[m.status] = (statuses[m.status] ?? 0) + 1;
-  console.log(`geçmiş ham aralık: ${past[0]?.begin_at} … ${past.at(-1)?.begin_at}, durumlar: ${JSON.stringify(statuses)}`);
 
   // Önce üst seviye turnuvalar, eşitlikte elimizde daha çok maçı olanlar.
   const matchCount = new Map();
