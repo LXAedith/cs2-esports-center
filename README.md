@@ -2,7 +2,7 @@
 
 Counter-Strike 2 profesyonel sahnesini tek ekranda toplayan, sade ve hızlı bir maç takip sitesi.
 
-**[lxaedith.github.io/espor-merkezi](https://lxaedith.github.io/espor-merkezi/)**
+**[lxaedith.github.io/cs2-esports-center](https://lxaedith.github.io/cs2-esports-center/)**
 
 - **Canlı:** Şu an oynanan maçlar, anlık skor ve harita harita durum. Tek tıkla resmi yayına geç.
 - **Yaklaşan:** Önümüzdeki haftanın fikstürü, güne göre sıralı.
