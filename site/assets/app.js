@@ -489,7 +489,8 @@ function hero(m, a, b, ta, tb) {
 }
 
 function mapsBlock(m, a, b) {
-  if (!m.games?.length) return '';
+  // Başlamamış maçlarda PandaScore boş harita kayıtları döndürüyor; onları göstermeye gerek yok.
+  if (!m.games?.some(g => g.status !== 'not_started')) return '';
   const rows = m.games.map(g => {
     const winner = g.winner_id == null ? null : g.winner_id === a.id ? a : g.winner_id === b.id ? b : null;
     const side = winner === a ? 'won-a' : winner === b ? 'won-b' : '';
