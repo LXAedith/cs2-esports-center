@@ -111,6 +111,15 @@ export function runChecks() {
     if (pills.length >= 4 && new Set(pills).size === 1) add('puan-tablosu-tutarsiz', `${pills.length} satırın hepsinde "${pills[0]}"`);
   }
 
+  // Eleme tablosu seri skoruna göre sıralı olmalı (0–2 elenen takım tepede durmamalı).
+  for (const table of document.querySelectorAll('table.standings.bracket')) {
+    const records = [...table.querySelectorAll('tbody tr:not(.gap)')]
+      .map(tr => /^(\d+)–(\d+)$/.exec(tr.children[2]?.textContent.trim() ?? ''))
+      .filter(Boolean).map(m => [Number(m[1]), Number(m[2])]);
+    const unordered = records.some((r, i) => i && (r[0] > records[i - 1][0] || (r[0] === records[i - 1][0] && r[1] < records[i - 1][1])));
+    if (unordered) add('puan-tablosu-sirasi', 'eleme tablosu seri skoruna göre sıralı değil');
+  }
+
   // Tablo hücreleri başka bir bileşen sınıfı yüzünden flex/blok kutuya dönüşmemeli.
   const badCells = [...document.querySelectorAll('table td, table th')]
     .filter(c => !['table-cell', 'none'].includes(getComputedStyle(c).display));

@@ -350,16 +350,30 @@ function compactRows(rows, highlight) {
   return out;
 }
 
+// PandaScore'un eleme tablosu sırası turnuva sürerken güvenilir değil (ör. 0–2 elenen takım 1. sırada).
+// Bu yüzden eleme tablosu bizim hesapladığımız seri skoruna göre sıralanır: önce galibiyet, sonra az mağlubiyet.
+function bracketOrder(rows) {
+  if (!rows.some(s => s.record)) return rows.map(s => ({ ...s, pos: s.rank }));
+  const key = s => [s.record?.wins ?? -1, -(s.record?.losses ?? 99)];
+  const sorted = [...rows].sort((x, y) => key(y)[0] - key(x)[0] || key(y)[1] - key(x)[1] || x.rank - y.rank);
+  return sorted.map((s, i) => {
+    const prev = sorted[i - 1];
+    const same = prev && key(prev)[0] === key(s)[0] && key(prev)[1] === key(s)[1];
+    return { ...s, pos: same ? null : i + 1 };
+  }).map((s, i, list) => ({ ...s, pos: s.pos ?? list.slice(0, i).findLast(x => x.pos != null).pos }));
+}
+
 function standingsTable(t, highlight = new Set(), compact = false) {
-  const all = t.standings ?? [];
-  if (!all.length) return empty('trophy', 'Puan tablosu henüz yok', 'Turnuva ilerledikçe sıralama burada görünecek.');
+  const raw = t.standings ?? [];
+  if (!raw.length) return empty('trophy', 'Puan tablosu henüz yok', 'Turnuva ilerledikçe sıralama burada görünecek.');
+  const all = raw[0].wins == null ? bracketOrder(raw) : raw.map(s => ({ ...s, pos: s.rank }));
   const rows = compact && all.length > 10 ? compactRows(all, highlight) : all;
-  const cls = s => [s.rank <= 3 && 'top', highlight.has(s.team?.id) && 'hl'].filter(Boolean).join(' ');
+  const cls = s => [s.pos <= 3 && 'top', highlight.has(s.team?.id) && 'hl'].filter(Boolean).join(' ');
   const gap = cols => `<tr class="gap"><td colspan="${cols}">⋯</td></tr>`;
 
   // Eleme tablosu: PandaScore son maçın kazananını vermiyor; seri skoru, son ve sıradaki maç
   // veri hattında kendi maç kayıtlarımızdan hesaplanıyor.
-  if (rows[0].wins == null) {
+  if (raw[0].wins == null) {
     const recent = s => {
       const r = s.recent;
       if (!r) return '<span class="muted">—</span>';
@@ -376,7 +390,7 @@ function standingsTable(t, highlight = new Set(), compact = false) {
     };
     return `<table class="standings bracket"><thead><tr><th>#</th><th class="tcol">Takım</th><th title="Bu turnuvada kazanılan – kaybedilen seri">G–M</th>
         <th class="left">Son maç</th><th class="left hide-sm">Sıradaki</th></tr></thead><tbody>
-      ${rows.map(s => (s ? `<tr class="${cls(s)}"><td class="rank">${esc(s.rank)}</td>
+      ${rows.map(s => (s ? `<tr class="${cls(s)}"><td class="rank">${esc(s.pos)}</td>
         <td class="tcol">${teamEl(s.team, { size: 'sm' })}</td>
         <td class="num">${s.record ? `<span class="w">${s.record.wins}</span>–<span class="muted">${s.record.losses}</span>` : '<span class="muted">—</span>'}</td>
         <td class="left">${recent(s)}</td><td class="left hide-sm">${next(s)}</td></tr>` : gap(5))).join('')}
@@ -391,7 +405,7 @@ function standingsTable(t, highlight = new Set(), compact = false) {
   };
   return `<table class="standings"><thead><tr><th>#</th><th class="tcol">Takım</th><th class="hide-sm" title="Oynanan">O</th>
       <th title="Galibiyet">G</th><th title="Mağlubiyet">M</th>${ties ? '<th title="Beraberlik">B</th>' : ''}<th title="Harita averajı">Av.</th></tr></thead><tbody>
-    ${rows.map(s => (s ? `<tr class="${cls(s)}"><td class="rank">${esc(s.rank)}</td>
+    ${rows.map(s => (s ? `<tr class="${cls(s)}"><td class="rank">${esc(s.pos)}</td>
       <td class="tcol">${teamEl(s.team, { size: 'sm' })}</td>
       <td class="hide-sm muted">${esc(s.total ?? s.wins + s.losses)}</td><td class="w">${esc(s.wins)}</td><td class="muted">${esc(s.losses)}</td>
       ${ties ? `<td class="muted">${esc(s.ties ?? 0)}</td>` : ''}<td>${diff(s)}</td></tr>` : gap(ties ? 7 : 6))).join('')}
