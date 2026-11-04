@@ -72,7 +72,7 @@ export function runChecks() {
   if (tall) add('satir-yuksekligi', `${tall}/${rows.length} satır 76px'ten yüksek`);
 
   // 5. Takım adları: geniş ekranlarda okunacak kadar yer olmalı.
-  const names = [...document.querySelectorAll('.row .name, .team-row .name, .hero-team .name, .standings .name, .cmp-head .name')]
+  const names = [...document.querySelectorAll('.row .name, .team-row .name, .hero-team .name, .standings .name, .cmp-head .name, .roster-head .name')]
     .filter(visible);
   const narrow = names.filter(el => el.clientWidth < (vw >= 1000 ? 110 : 56) && el.scrollWidth > el.clientWidth + 1);
   const cut = names.filter(el => el.scrollWidth > el.clientWidth + 1);
@@ -153,6 +153,10 @@ export function runChecks() {
     .filter(el => visible(el) && el.scrollHeight > el.clientHeight + 2);
   if (spilled.length) add('dugme-tasmasi', `${spilled.length} düğmede yazı sığmıyor (ör. ${describe(spilled[0])} "${spilled[0].textContent.trim().slice(0, 30)}")`);
 
+  // Açıklama düğmelerinin metni olmalı.
+  const emptyTips = [...document.querySelectorAll('.tip')].filter(t => !t.dataset.tip?.trim()).length;
+  if (emptyTips) add('ipucu-eksik', `${emptyTips} açıklama düğmesinin metni yok`);
+
   // Galibiyet/mağlubiyet sayıları renkli; sıfır ise renksiz olmalı.
   const coloredZero = [...document.querySelectorAll('.standings .w, .standings .l')].filter(el => el.textContent.trim() === '0').length;
   if (coloredZero) add('renkli-sifir', `${coloredZero} sıfır değeri yeşil/kırmızı boyanmış`);
@@ -168,7 +172,8 @@ export function runChecks() {
 
   // 10. Mobilde dokunma hedefleri yeterince büyük olmalı.
   if (vw < 500) {
-    const small = [...document.querySelectorAll('button, .chip, .btn, .stream-btn, .watch, .tabs a, .back')]
+    // .tip görünenden büyük bir dokunma alanına sahip (::before ile genişletildi).
+    const small = [...document.querySelectorAll('button:not(.tip), .chip, .btn, .stream-btn, .watch, .tabs a, .back')]
       .filter(visible).filter(el => el.getBoundingClientRect().height < 30);
     if (small.length) add('dokunma-hedefi', `${small.length} düğme 30px'ten alçak (ör. ${describe(small[0])})`, 'warn');
   }

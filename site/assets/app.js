@@ -35,6 +35,7 @@ const ICONS = {
   list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
   history: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/>',
   tv: '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="m17 2-5 5-5-5"/>',
+  external: '<path d="M7 17 17 7M8 7h9v9"/>',
 };
 const PLAY = '<svg class="play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
 
@@ -553,7 +554,7 @@ function mapsBlock(m, a, b) {
     const winner = g.winner_id == null ? null : g.winner_id === a.id ? a : g.winner_id === b.id ? b : null;
     const side = winner === a ? 'won-a' : winner === b ? 'won-b' : '';
     const pending = g.status === 'running' ? '<span class="result-pill live">Oynanıyor</span>'
-      : g.status === 'finished' ? '' : '<span class="muted">Oynanmadı</span>';
+      : g.status === 'finished' ? '' : `<span class="muted">${m.status === 'finished' ? 'Oynanmadı' : 'Sırada'}</span>`;
     const len = g.length >= 60 ? `<span class="map-len">${icon('clock')}${Math.round(g.length / 60)} dk</span>` : '';
     return `<div class="map-row ${side}${g.status === 'running' ? ' live' : ''}">
       <span class="map-no">${icon('map')}Harita ${esc(g.position)}</span>
@@ -563,6 +564,48 @@ function mapsBlock(m, a, b) {
   return block('map', 'Haritalar', `<div class="map-list">${rows}</div>`, esc(boLabel(m)));
 }
 
+// İstatistik satırlarındaki "?" düğmesinin açıklamaları; dokununca ya da üzerine gelince görünür.
+const TIPS = {
+  winRate: 'Son 30 günde oynadığı maçların (serilerin) yüzde kaçını kazandı.',
+  record: 'Son 30 günde kazandığı ve kaybettiği maç (seri) sayısı.',
+  mapRate: 'Oynadığı haritaların yüzde kaçını kazandı. Altında kazanılan–kaybedilen harita sayısı.',
+  streak: 'Üst üste kazandığı (G) ya da kaybettiği (M) maç sayısı.',
+  played: 'Son 30 günde oynadığı maç (seri) sayısı. Az maçtan çıkan yüzdeler yanıltıcı olabilir.',
+  form: 'Son 5 maçın sonucu. G = galibiyet, M = mağlubiyet; en soldaki en yeni maç.',
+  first: 'Serinin ilk haritasını kazanma oranı. Maça iyi başlayıp başlamadığını gösterir.',
+  decider: 'Seri son haritaya kaldığında (Bo3\'te 3., Bo5\'te 5. harita) o haritayı kazanma oranı. Baskı altındaki performans.',
+  clean: 'Kazandığı Bo3/Bo5 serilerinden kaçını hiç harita kaybetmeden (2–0, 3–0) kazandı.',
+  comeback: 'İlk haritayı kaybettiği serilerden kaçını yine de kazandı.',
+  bo1: 'Tek haritalık (Bo1) maçlardaki galibiyet oranı.',
+  multi: 'Bo3 ve Bo5 gibi çok haritalı maçlardaki galibiyet oranı.',
+  minutes: 'Oynadığı haritaların ortalama süresi. Uzun haritalar genellikle daha çekişmeli geçer.',
+};
+
+const tipBtn = (label, text) =>
+  `<button type="button" class="tip" data-tip="${esc(text)}" aria-label="${esc(`${label}: ${text}`)}">?</button>`;
+
+function cmpHead(a, b) {
+  return `<div class="cmp-head"><span class="ca">${teamEl(a, { size: 'sm' })}</span><span class="cb">${teamEl(b, { size: 'sm', rev: true })}</span></div>`;
+}
+
+// İki takımı tek satırda karşılaştırır: değerler, simgeli etiket ve paylaştırılmış çubuk.
+// İki tarafta da veri yoksa satır hiç çizilmez.
+function cmpRow(iconName, label, va, vb, { show = v => v, bar = true, lead = true, tip = '' } = {}) {
+  if (va == null && vb == null) return '';
+  const has = va != null && vb != null;
+  const leader = !lead || !has || va === vb ? null : va > vb ? 'a' : 'b';
+  const share = has && va + vb > 0 ? Math.round((va / (va + vb)) * 100) : 50;
+  return `<div class="cmp-row">
+    <span class="v a${leader === 'a' ? ' lead' : ''}">${va == null ? '—' : show(va, 'a')}</span>
+    <div class="cmp-mid"><span class="lbl">${icon(iconName)}${label}${tip ? tipBtn(label, tip) : ''}</span>
+      ${bar && has ? `<div class="bar" aria-hidden="true"><i class="ba" style="width:${share}%"></i><i class="bb" style="width:${100 - share}%"></i></div>` : ''}</div>
+    <span class="v b${leader === 'b' ? ' lead' : ''}">${vb == null ? '—' : show(vb, 'b')}</span>
+  </div>`;
+}
+
+const pct = (x, y) => (x + y ? Math.round((x / (x + y)) * 100) : null);
+const rate = r => (r?.n ? Math.round((r.w / r.n) * 100) : null);
+
 function compareBlock(a, b, ta, tb) {
   if (!state.teams) return loadingBlock('chart', 'Karşılaştırma');
   const sa = ta?.stats;
@@ -571,34 +614,52 @@ function compareBlock(a, b, ta, tb) {
     return block('chart', 'Karşılaştırma', '<p class="muted pad">Bu takımlar için son dönemde maç kaydı yok.</p>');
   }
   const days = state.data.range?.days_history ?? 30;
-  const pct = (x, y) => (x + y ? Math.round((x / (x + y)) * 100) : null);
-  const row = (iconName, label, va, vb, show = v => v, bar = true) => {
-    const has = va != null && vb != null;
-    const lead = !has || va === vb ? null : va > vb ? 'a' : 'b';
-    const share = has && va + vb > 0 ? Math.round((va / (va + vb)) * 100) : 50;
-    return `<div class="cmp-row">
-      <span class="v a${lead === 'a' ? ' lead' : ''}">${va == null ? '—' : show(va, 'a')}</span>
-      <div class="cmp-mid"><span class="lbl">${icon(iconName)}${label}</span>
-        ${bar ? `<div class="bar" aria-hidden="true"><i class="ba" style="width:${share}%"></i><i class="bb" style="width:${100 - share}%"></i></div>` : ''}</div>
-      <span class="v b${lead === 'b' ? ' lead' : ''}">${vb == null ? '—' : show(vb, 'b')}</span>
-    </div>`;
-  };
+  const of = side => (side === 'a' ? sa : sb);
   const streak = s => (s?.streak ? (s.streak.won ? s.streak.n : -s.streak.n) : null);
   const form = t => `<div class="form">${(t?.form ?? []).map(f =>
     `<span class="fp ${f.won ? 'w' : 'l'}" title="${esc(`${f.won ? 'Galibiyet' : 'Mağlubiyet'} · ${f.opp.name} ${f.score[0]}–${f.score[1]} · ${fmtShort.format(Date.parse(f.at))}`)}">${f.won ? 'G' : 'M'}</span>`).join('') || '<span class="muted">—</span>'}</div>`;
 
   const body = `<div class="cmp">
-    <div class="cmp-head"><span class="ca">${teamEl(a, { size: 'sm' })}</span><span class="cb">${teamEl(b, { size: 'sm', rev: true })}</span></div>
-    ${row('trophy', 'Galibiyet oranı', sa?.played ? pct(sa.wins, sa.losses) : null, sb?.played ? pct(sb.wins, sb.losses) : null, v => `${v}%`)}
-    ${row('target', 'Galibiyet – Mağlubiyet', sa?.played ? sa.wins : null, sb?.played ? sb.wins : null,
-      (v, side) => { const s = side === 'a' ? sa : sb; return `${s.wins}–${s.losses}`; })}
-    ${row('percent', 'Harita kazanma', sa?.played ? pct(sa.map_wins, sa.map_losses) : null, sb?.played ? pct(sb.map_wins, sb.map_losses) : null,
-      (v, side) => { const s = side === 'a' ? sa : sb; return `${v}%<small>${s.map_wins}–${s.map_losses}</small>`; })}
-    ${row('flame', 'Seri', streak(sa), streak(sb), v => (v > 0 ? `<span class="pos">${v} G</span>` : `<span class="neg">${-v} M</span>`), false)}
-    ${row('calendar', 'Oynanan maç', sa?.played ?? null, sb?.played ?? null)}
-    <div class="cmp-row form-row">${form(ta)}<span class="lbl">${icon('history')}Son 5 maç</span>${form(tb)}</div>
+    ${cmpHead(a, b)}
+    ${cmpRow('trophy', 'Galibiyet oranı', sa?.played ? pct(sa.wins, sa.losses) : null, sb?.played ? pct(sb.wins, sb.losses) : null,
+      { show: v => `${v}%`, tip: TIPS.winRate })}
+    ${cmpRow('target', 'Galibiyet – Mağlubiyet', sa?.played ? sa.wins : null, sb?.played ? sb.wins : null,
+      { show: (v, side) => `${of(side).wins}–${of(side).losses}`, tip: TIPS.record })}
+    ${cmpRow('percent', 'Harita kazanma', sa?.played ? pct(sa.map_wins, sa.map_losses) : null, sb?.played ? pct(sb.map_wins, sb.map_losses) : null,
+      { show: (v, side) => `${v}%<small>${of(side).map_wins}–${of(side).map_losses}</small>`, tip: TIPS.mapRate })}
+    ${cmpRow('flame', 'Seri', streak(sa), streak(sb),
+      { show: v => (v > 0 ? `<span class="pos">${v} G</span>` : `<span class="neg">${-v} M</span>`), bar: false, tip: TIPS.streak })}
+    ${cmpRow('calendar', 'Oynanan maç', sa?.played ?? null, sb?.played ?? null, { lead: false, tip: TIPS.played })}
+    <div class="cmp-row form-row">${form(ta)}<span class="lbl">${icon('history')}Son 5 maç${tipBtn('Son 5 maç', TIPS.form)}</span>${form(tb)}</div>
   </div>`;
   return block('chart', 'Karşılaştırma', body, `Son ${days} gün`);
+}
+
+// Harita bazlı takım istatistikleri: ücretsiz veride her haritanın kazananı ve süresi var,
+// harita adı ve oyuncu istatistikleri yok.
+function mapStatsBlock(a, b, ta, tb) {
+  if (!state.teams) return loadingBlock('map', 'Harita istatistikleri');
+  const ma = ta?.stats?.maps;
+  const mb = tb?.stats?.maps;
+  if (!ma && !mb) return '';
+  const days = state.data.range?.days_history ?? 30;
+  const pick = (side, key) => (side === 'a' ? ma : mb)?.[key];
+  const withCount = key => (v, side) => `${v}%<small>${pick(side, key).w}/${pick(side, key).n}</small>`;
+  const row = (iconName, label, key, tip) =>
+    cmpRow(iconName, label, rate(ma?.[key]), rate(mb?.[key]), { show: withCount(key), tip });
+
+  const rows = [
+    row('map', 'İlk harita', 'first', TIPS.first),
+    row('target', 'Belirleyici harita', 'decider', TIPS.decider),
+    row('trophy', 'Temiz galibiyet', 'clean', TIPS.clean),
+    row('history', 'Geri dönüş', 'comeback', TIPS.comeback),
+    row('percent', 'Bo1 galibiyeti', 'bo1', TIPS.bo1),
+    row('percent', 'Bo3/Bo5 galibiyeti', 'multi', TIPS.multi),
+    cmpRow('clock', 'Ortalama harita süresi', ma?.avg_minutes ?? null, mb?.avg_minutes ?? null,
+      { show: v => `${v} dk`, bar: false, lead: false, tip: TIPS.minutes }),
+  ].join('');
+  if (!rows) return '';
+  return block('map', 'Harita istatistikleri', `<div class="cmp">${cmpHead(a, b)}${rows}</div>`, `Son ${days} gün`);
 }
 
 function h2hBlock(m, a, b) {
@@ -622,25 +683,37 @@ function h2hBlock(m, a, b) {
   return block('swords', 'Aralarındaki maçlar', body, `Son ${list.length} karşılaşma`);
 }
 
-function rosterList(t, info) {
+// Ülke kodundan Türkçe ülke adı (ör. "UA" → "Ukrayna").
+const regionNames = new Intl.DisplayNames(['tr'], { type: 'region' });
+function country(code) {
+  if (!/^[A-Za-z]{2}$/.test(code ?? '')) return '';
+  try { return regionNames.of(code.toUpperCase()) ?? ''; } catch { return ''; }
+}
+
+function rosterList(t, info, side) {
   const players = info?.players ?? [];
   const items = players.length
     ? players.map(p => {
       const url = safeUrl(p.liquipedia);
       const nick = url
-        ? `<a class="p-nick" href="${esc(url)}" target="_blank" rel="noopener" title="${esc(`${p.name} · Liquipedia`)}">${esc(p.name)}</a>`
+        ? `<a class="p-nick" href="${esc(url)}" target="_blank" rel="noopener" title="${esc(`${p.name} · Liquipedia`)}">${esc(p.name)}${icon('external', 'ext')}</a>`
         : `<span class="p-nick">${esc(p.name)}</span>`;
       const real = [p.first_name, p.last_name].filter(Boolean).join(' ');
-      return `<li class="player">${logo(p, 'pl')}<div class="p-txt">${nick}<small>${flag(p.nationality)}${esc(real)}</small></div>${p.role ? `<span class="role" lang="en">${esc(p.role)}</span>` : ''}</li>`;
+      const where = country(p.nationality);
+      return `<li class="player">${logo(p, 'pl')}<div class="p-txt">${nick}
+        <small>${flag(p.nationality)}${where ? `<span>${esc(where)}</span>` : ''}${real ? `<span class="real">${esc(real)}</span>` : ''}</small></div>
+        ${p.role ? `<span class="role" lang="en">${esc(p.role)}</span>` : ''}</li>`;
     }).join('')
     : '<li class="muted pad">Kadro bilgisi yok.</li>';
-  return `<div class="roster"><div class="roster-head">${teamEl(t, { size: 'sm' })}</div><ul>${items}</ul></div>`;
+  const home = country(info?.location);
+  const meta = [players.length ? `${players.length} oyuncu` : '', home ? `${flag(info.location)}${esc(home)}` : ''].filter(Boolean).join(' · ');
+  return `<div class="roster ${side}"><div class="roster-head">${teamEl(t, { size: 'sm' })}${meta ? `<span class="roster-meta">${meta}</span>` : ''}</div><ul>${items}</ul></div>`;
 }
 
 function rostersBlock(a, b, ta, tb) {
   if (!state.teams) return loadingBlock('users', 'Kadrolar');
   if (a.tbd && b.tbd) return '';
-  return block('users', 'Kadrolar', `<div class="rosters">${rosterList(a, ta)}${rosterList(b, tb)}</div>`);
+  return block('users', 'Kadrolar', `<div class="rosters">${rosterList(a, ta, 'a')}${rosterList(b, tb, 'b')}</div>`);
 }
 
 function recentList(t, info) {
@@ -683,7 +756,7 @@ function matchView(id) {
     ${back}
     ${hero(m, a, b, ta, tb)}
     <div class="detail-cols">
-      <div class="col">${mapsBlock(m, a, b)}${compareBlock(a, b, ta, tb)}${rostersBlock(a, b, ta, tb)}${recentBlock(a, b, ta, tb)}</div>
+      <div class="col">${mapsBlock(m, a, b)}${compareBlock(a, b, ta, tb)}${mapStatsBlock(a, b, ta, tb)}${rostersBlock(a, b, ta, tb)}${recentBlock(a, b, ta, tb)}</div>
       <div class="col">${h2hBlock(m, a, b)}${standingBlock(m, a, b)}</div>
     </div>
   </div>`;
@@ -848,7 +921,20 @@ view.addEventListener('change', e => {
   if (e.target.id === 'league-select') go({ view: 'turnuvalar', id: Number(e.target.value) });
 });
 
+// Açıklama baloncukları dokunarak da açılıp kapanır (dokunmatik ekranlarda üzerine gelme yok).
+function closeTips(except) {
+  for (const t of document.querySelectorAll('.tip.open')) if (t !== except) t.classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTips(); });
+
 view.addEventListener('click', e => {
+  const tip = e.target.closest('.tip');
+  closeTips(tip);
+  if (tip) {
+    e.preventDefault();
+    tip.classList.toggle('open');
+    return;
+  }
   if (!e.target.closest('[data-action="clear"]')) return;
   e.preventDefault();
   state.query = '';

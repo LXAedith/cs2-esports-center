@@ -24,6 +24,9 @@ export function teamSummary(teamId, matches, formSize = 5) {
   let mapWins = 0;
   let mapLosses = 0;
   const results = [];
+  // Harita bazlı sayaçlar: [kazanılan, toplam]
+  const first = [0, 0], decider = [0, 0], clean = [0, 0], comeback = [0, 0], bo1 = [0, 0], multi = [0, 0];
+  const minutes = [];
   for (const m of matches) {
     const us = m.teams.find(t => t.id === teamId);
     const them = m.teams.find(t => t.id !== teamId);
@@ -33,6 +36,22 @@ export function teamSummary(teamId, matches, formSize = 5) {
     losses += !won;
     mapWins += us.score ?? 0;
     mapLosses += them.score ?? 0;
+
+    const games = (m.games ?? [])
+      .filter(g => g.status === 'finished' && g.winner_id != null)
+      .sort((x, y) => x.position - y.position);
+    const tally = (counter, hit) => { counter[0] += hit; counter[1]++; };
+    if (m.bo === 1) tally(bo1, won);
+    else if (m.bo >= 2) tally(multi, won);
+    if (games[0]) tally(first, games[0].winner_id === teamId);
+    // Seri son haritaya kaldıysa (Bo3'te 3., Bo5'te 5. harita) o harita belirleyicidir.
+    if (m.bo >= 3 && games.length === m.bo) tally(decider, games.at(-1).winner_id === teamId);
+    // Kazanılan çok haritalı serilerden kaçı harita kaybetmeden (2–0, 3–0) geldi.
+    if (m.bo >= 3 && won) tally(clean, (them.score ?? 0) === 0);
+    // İlk haritası kaybedilen serilerden kaçı yine de kazanıldı.
+    if (m.bo >= 3 && games[0] && games[0].winner_id !== teamId) tally(comeback, won);
+    for (const g of games) if (g.length >= 60) minutes.push(g.length / 60);
+
     results.push({
       id: m.id,
       at: m.begin_at,
@@ -49,7 +68,19 @@ export function teamSummary(teamId, matches, formSize = 5) {
     streak = { won: results[0].won, n };
   }
   return {
-    stats: { played: wins + losses, wins, losses, map_wins: mapWins, map_losses: mapLosses, streak },
+    stats: {
+      played: wins + losses, wins, losses, map_wins: mapWins, map_losses: mapLosses, streak,
+      maps: {
+        first: { w: first[0], n: first[1] },
+        decider: { w: decider[0], n: decider[1] },
+        clean: { w: clean[0], n: clean[1] },
+        comeback: { w: comeback[0], n: comeback[1] },
+        bo1: { w: bo1[0], n: bo1[1] },
+        multi: { w: multi[0], n: multi[1] },
+        avg_minutes: minutes.length ? Math.round(minutes.reduce((x, y) => x + y, 0) / minutes.length) : null,
+        timed_maps: minutes.length,
+      },
+    },
     form: results.slice(0, formSize),
   };
 }
