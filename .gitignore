@@ -1,2 +1,4 @@
 site/data/
 cache/
+node_modules/
+qa/out/

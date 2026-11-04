@@ -135,7 +135,8 @@ export function buildDemoData(now = Date.now()) {
         r.losses += !won;
         r.game_wins += scores[side];
         r.game_losses += scores[1 - side];
-        if (!r.last || begin > Date.parse(r.last.begin_at)) r.last = { status: 'finished', winner_id: m.winner_id, begin_at: m.begin_at };
+        // Gerçek API gibi: eleme tablosunda son maçın kazananı boş gelir.
+        if (!r.last || begin > Date.parse(r.last.begin_at)) r.last = { status: 'finished', winner_id: null, begin_at: m.begin_at };
       });
     }
 

@@ -268,8 +268,11 @@ function matchRow(m, { withDate = false } = {}) {
 
   const winA = finished && m.winner_id != null && m.winner_id === a.id;
   const winB = finished && m.winner_id != null && m.winner_id === b.id;
-  const side = (t, cls, lost) => `<div class="side ${cls}${lost ? ' lose' : ''}${t.tbd ? ' tbd' : ''}">${teamEl(t, { rev: cls === 'a' })}</div>`;
-  const mid = finished || live
+  // Dar düzende takımlar alt alta dizilir ve skor her takımın yanında (side-score) gösterilir.
+  const scored = finished || live;
+  const side = (t, cls, lost) => `<div class="side ${cls}${lost ? ' lose' : ''}${t.tbd ? ' tbd' : ''}">${teamEl(t, { rev: cls === 'a' })}${
+    scored ? `<b class="side-score num">${esc(t.score ?? 0)}</b>` : ''}</div>`;
+  const mid = scored
     ? `<div class="mid score${live ? ' live' : ''}"><span class="${winB ? 'l' : ''}">${esc(a.score ?? 0)}</span><span class="l">:</span><span class="${winA ? 'l' : ''}">${esc(b.score ?? 0)}</span></div>`
     : '<div class="mid">vs</div>';
   const tags = [m.forfeit && '<span class="tag">Hükmen</span>', m.draw && '<span class="tag">Berabere</span>'].filter(Boolean).join('');
@@ -278,12 +281,12 @@ function matchRow(m, { withDate = false } = {}) {
          aria-label="${esc(`${a.name} - ${b.name}: ${platform(main.url)} yayınını aç (yeni sekme)`)}">${PLAY}${esc(platform(main.url))}</a>`
     : '';
 
-  return `<article class="row${live ? ' is-live' : ''}">
+  return `<article class="row${live ? ' is-live' : ''}${scored ? ' scored' : ''}">
     <a class="stretched" href="${matchHash(m.id)}" aria-label="${esc(`${a.name} - ${b.name} maç detayı`)}"></a>
     <div class="row-time">${begin ? fmtTime.format(begin) : '—'}${note}</div>
     <div class="row-match">${side(a, 'a', winB)}${mid}${side(b, 'b', winA)}</div>
     <div class="row-meta">
-      <span class="league" title="${esc([m.league?.name, subtitle(m)].filter(Boolean).join(' · '))}">${esc(m.league?.name)}${subtitle(m) ? ` · ${esc(subtitle(m))}` : ''}</span>
+      <span class="league" title="${esc([m.league?.name, subtitle(m)].filter(Boolean).join(' · '))}">${logo(m.league, 'xs')}<span>${esc(m.league?.name)}${subtitle(m) ? ` · ${esc(subtitle(m))}` : ''}</span></span>
       <span class="sub">${tierBadge(m.tournament?.tier)}<span class="extra">${esc([boLabel(m), m.stage].filter(Boolean).join(' · '))}</span>${tags}</span>
     </div>
     <div class="row-action">${action}${icon('next', 'chev')}</div>
@@ -331,38 +334,67 @@ function liveView(items) {
 const upcomingView = items => (items.length ? dayList(items) : empty('calendar', 'Yaklaşan maç bulunamadı'));
 const resultsView = items => (items.length ? dayList(items) : empty('results', 'Sonuç bulunamadı'));
 
-function standingsTable(t, highlight = new Set()) {
-  const rows = t.standings ?? [];
-  if (!rows.length) return empty('trophy', 'Puan tablosu henüz yok', 'Turnuva ilerledikçe sıralama burada görünecek.');
-  const cls = s => [s.rank <= 3 && 'top', highlight.has(s.team?.id) && 'hl'].filter(Boolean).join(' ');
+// Kısa tabloda ilk 3 ile vurgulanan takımların bir üstü ve bir altı kalır; aradaki boşluklar "⋯" olur.
+function compactRows(rows, highlight) {
+  const marked = new Set();
+  rows.forEach((s, i) => {
+    if (i < 3) marked.add(i);
+    if (highlight.has(s.team?.id)) [i - 1, i, i + 1].forEach(j => j >= 0 && j < rows.length && marked.add(j));
+  });
+  const out = [];
+  [...marked].sort((x, y) => x - y).forEach((i, k, list) => {
+    if (k && i - list[k - 1] > 1) out.push(null);
+    out.push(rows[i]);
+  });
+  if (Math.max(...marked) < rows.length - 1) out.push(null);
+  return out;
+}
 
+function standingsTable(t, highlight = new Set(), compact = false) {
+  const all = t.standings ?? [];
+  if (!all.length) return empty('trophy', 'Puan tablosu henüz yok', 'Turnuva ilerledikçe sıralama burada görünecek.');
+  const rows = compact && all.length > 10 ? compactRows(all, highlight) : all;
+  const cls = s => [s.rank <= 3 && 'top', highlight.has(s.team?.id) && 'hl'].filter(Boolean).join(' ');
+  const gap = cols => `<tr class="gap"><td colspan="${cols}">⋯</td></tr>`;
+
+  // Eleme tablosu: PandaScore son maçın kazananını vermiyor; seri skoru, son ve sıradaki maç
+  // veri hattında kendi maç kayıtlarımızdan hesaplanıyor.
   if (rows[0].wins == null) {
-    const result = s => {
-      const lm = s.last_match;
-      if (!lm) return '<span class="muted">—</span>';
-      const date = lm.begin_at ? ` <span class="muted">${esc(fmtShort.format(Date.parse(lm.begin_at)))}</span>` : '';
-      if (lm.status === 'running') return '<span class="result-pill live">Oynuyor</span>';
-      if (lm.status !== 'finished') return `<span class="result-pill lost">Sırada</span>${date}`;
-      return lm.winner_id === s.team?.id ? `<span class="result-pill won">Galip</span>${date}` : `<span class="result-pill lost">Mağlup</span>${date}`;
+    const recent = s => {
+      const r = s.recent;
+      if (!r) return '<span class="muted">—</span>';
+      const inner = `<span class="fp ${r.won ? 'w' : 'l'}" title="${r.won ? 'Galibiyet' : 'Mağlubiyet'}">${r.won ? 'G' : 'M'}</span>
+        <span class="vs-opp">${logo(r.opp, 'sm')}<span>${esc(initials(r.opp))}</span></span><b class="num">${r.score[0]}–${r.score[1]}</b>`;
+      return findMatch(r.id) ? `<a class="st-match" href="${matchHash(r.id)}">${inner}</a>` : `<span class="st-match">${inner}</span>`;
     };
-    return `<table class="standings"><thead><tr><th>#</th><th class="team">Takım</th><th>Son maç</th></tr></thead><tbody>
-      ${rows.map(s => `<tr class="${cls(s)}"><td class="rank">${esc(s.rank)}</td>
-        <td class="team">${teamEl(s.team, { size: 'sm' })}</td><td>${result(s)}</td></tr>`).join('')}
+    const next = s => {
+      const n = s.next;
+      if (!n) return '<span class="muted">—</span>';
+      const when = n.live ? '<span class="result-pill live">Canlı</span>'
+        : `<span class="muted num">${esc(n.at ? `${shortDate(Date.parse(n.at))} ${fmtTime.format(Date.parse(n.at))}` : '?')}</span>`;
+      return `<a class="st-match" href="${matchHash(n.id)}"><span class="vs-opp">${logo(n.opp, 'sm')}<span>${esc(initials(n.opp))}</span></span>${when}</a>`;
+    };
+    return `<table class="standings bracket"><thead><tr><th>#</th><th class="tcol">Takım</th><th title="Bu turnuvada kazanılan – kaybedilen seri">G–M</th>
+        <th class="left">Son maç</th><th class="left hide-sm">Sıradaki</th></tr></thead><tbody>
+      ${rows.map(s => (s ? `<tr class="${cls(s)}"><td class="rank">${esc(s.rank)}</td>
+        <td class="tcol">${teamEl(s.team, { size: 'sm' })}</td>
+        <td class="num">${s.record ? `<span class="w">${s.record.wins}</span>–<span class="muted">${s.record.losses}</span>` : '<span class="muted">—</span>'}</td>
+        <td class="left">${recent(s)}</td><td class="left hide-sm">${next(s)}</td></tr>` : gap(5))).join('')}
     </tbody></table>`;
   }
 
-  const ties = rows.some(s => s.ties);
+  const ties = all.some(s => s.ties);
   const diff = s => {
     if (s.game_wins == null || s.game_losses == null) return '<span class="muted">—</span>';
     const d = s.game_wins - s.game_losses;
     return `<span class="${d > 0 ? 'pos' : d < 0 ? 'neg' : 'muted'}">${d > 0 ? '+' : d < 0 ? '−' : ''}${Math.abs(d)}</span>`;
   };
-  return `<table class="standings"><thead><tr><th>#</th><th class="team">Takım</th><th class="hide-sm" title="Oynanan">O</th>
+  return `<table class="standings"><thead><tr><th>#</th><th class="tcol">Takım</th><th class="hide-sm" title="Oynanan">O</th>
       <th title="Galibiyet">G</th><th title="Mağlubiyet">M</th>${ties ? '<th title="Beraberlik">B</th>' : ''}<th title="Harita averajı">Av.</th></tr></thead><tbody>
-    ${rows.map(s => `<tr class="${cls(s)}"><td class="rank">${esc(s.rank)}</td>
-      <td class="team">${teamEl(s.team, { size: 'sm' })}</td>
+    ${rows.map(s => (s ? `<tr class="${cls(s)}"><td class="rank">${esc(s.rank)}</td>
+      <td class="tcol">${teamEl(s.team, { size: 'sm' })}</td>
       <td class="hide-sm muted">${esc(s.total ?? s.wins + s.losses)}</td><td class="w">${esc(s.wins)}</td><td class="muted">${esc(s.losses)}</td>
-      ${ties ? `<td class="muted">${esc(s.ties ?? 0)}</td>` : ''}<td>${diff(s)}</td></tr>`).join('')}
+      ${ties ? `<td class="muted">${esc(s.ties ?? 0)}</td>` : ''}<td>${diff(s)}</td></tr>` : gap(ties ? 7 : 6))).join('')}
   </tbody></table>`;
 }
 
@@ -444,8 +476,9 @@ const block = (iconName, title, body, note = '') =>
 const loadingBlock = (iconName, title) => block(iconName, title, '<div class="loading sm"><span class="spinner"></span>Yükleniyor…</div>');
 
 function heroTeam(t, info, cls, won) {
-  const loc = info?.location ? `<span class="loc">${flag(info.location)}${esc(info.location)}</span>` : '';
-  return `<div class="hero-team ${cls}${won ? ' won' : ''}">${teamEl(t, { size: 'xl', cls: 'stack' })}${loc}</div>`;
+  const loc = info?.location ? `${flag(info.location)}${esc(info.location)}` : '';
+  return `<div class="hero-team ${cls}${won ? ' won' : ''}">${teamEl(t, { size: 'xl', cls: 'stack' })}
+    <span class="loc">${loc}</span>${won ? `<span class="win-tag">${icon('trophy')}Kazandı</span>` : ''}</div>`;
 }
 
 function hero(m, a, b, ta, tb) {
@@ -496,7 +529,7 @@ function mapsBlock(m, a, b) {
     const side = winner === a ? 'won-a' : winner === b ? 'won-b' : '';
     const pending = g.status === 'running' ? '<span class="result-pill live">Oynanıyor</span>'
       : g.status === 'finished' ? '' : '<span class="muted">Oynanmadı</span>';
-    const len = g.length ? `<span class="map-len">${icon('clock')}${Math.round(g.length / 60)} dk</span>` : '';
+    const len = g.length >= 60 ? `<span class="map-len">${icon('clock')}${Math.round(g.length / 60)} dk</span>` : '';
     return `<div class="map-row ${side}${g.status === 'running' ? ' live' : ''}">
       <span class="map-no">${icon('map')}Harita ${esc(g.position)}</span>
       <span class="map-win">${winner ? `${teamEl(winner, { size: 'sm' })}<span class="muted">kazandı</span>` : pending}</span>${len}
@@ -609,7 +642,7 @@ function standingBlock(m, a, b) {
   if (!t?.standings?.length) return '';
   const ids = new Set([a.id, b.id].filter(id => id != null));
   const link = `<a class="more-link" href="${listHash({ view: 'turnuvalar', tier: 'all', id: t.id })}">Tüm turnuva${icon('next')}</a>`;
-  return block('list', 'Puan durumu', standingsTable(t, ids) + link, esc(t.name));
+  return block('list', 'Puan durumu', standingsTable(t, ids, true) + link, esc(t.name));
 }
 
 function matchView(id) {
@@ -625,8 +658,8 @@ function matchView(id) {
     ${back}
     ${hero(m, a, b, ta, tb)}
     <div class="detail-cols">
-      <div class="col">${mapsBlock(m, a, b)}${compareBlock(a, b, ta, tb)}${rostersBlock(a, b, ta, tb)}</div>
-      <div class="col">${h2hBlock(m, a, b)}${standingBlock(m, a, b)}${recentBlock(a, b, ta, tb)}</div>
+      <div class="col">${mapsBlock(m, a, b)}${compareBlock(a, b, ta, tb)}${rostersBlock(a, b, ta, tb)}${recentBlock(a, b, ta, tb)}</div>
+      <div class="col">${h2hBlock(m, a, b)}${standingBlock(m, a, b)}</div>
     </div>
   </div>`;
 }
@@ -821,6 +854,10 @@ window.addEventListener('hashchange', e => {
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) load();
 });
+
+// Yapışkan gün başlıkları üst barın gerçek yüksekliğine göre konumlanır.
+const topbar = $('.topbar');
+new ResizeObserver(() => document.documentElement.style.setProperty('--topbar-h', `${topbar.offsetHeight}px`)).observe(topbar);
 
 Object.assign(state, parseHash());
 load();

@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDemoData } from './demo-data.mjs';
 import { resolveLiquipedia } from './liquipedia.mjs';
-import { headToHead, indexByTeam, pairKey, teamSummary } from './stats.mjs';
+import { headToHead, indexByTeam, pairKey, teamSummary, tournamentRecords } from './stats.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DATA_DIR = join(ROOT, 'site', 'data');
@@ -273,6 +273,17 @@ function assemble({ demo, running, upcoming, history, tournaments, rosters }) {
   const past = history.filter(m => time(m) >= now - DAYS_BACK * DAY).sort((a, b) => time(b) - time(a));
   const shown = [...running, ...upcoming, ...past];
   const byTeam = indexByTeam(history);
+
+  for (const t of tournaments) {
+    if (!t.standings?.length) continue;
+    const records = tournamentRecords(t.id, history, [...running, ...upcoming]);
+    for (const s of t.standings) {
+      const r = records.get(s.team?.id);
+      s.record = r ? { wins: r.wins, losses: r.losses } : null;
+      s.recent = r?.last ?? null;
+      s.next = r?.next ?? null;
+    }
+  }
 
   const known = new Map();
   for (const m of [...history, ...shown]) for (const t of m.teams) if (t.id != null) known.set(t.id, t);

@@ -1,0 +1,12 @@
+{
+  "name": "cs2-esports-center",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "data:demo": "node scripts/fetch-data.mjs --demo",
+    "qa": "node qa/run.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.64.1"
+  }
+}

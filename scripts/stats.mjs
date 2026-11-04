@@ -54,6 +54,36 @@ export function teamSummary(teamId, matches, formSize = 5) {
   };
 }
 
+// Bir turnuvadaki her takımın seri skoru, son maçı ve sıradaki maçı. PandaScore'un eleme tablosu
+// son maçın kazananını boş döndürdüğü için bu bilgiler kendi maç verimizden çıkarılır.
+export function tournamentRecords(tournamentId, finished, scheduled) {
+  const records = new Map();
+  const get = id => {
+    if (!records.has(id)) records.set(id, { wins: 0, losses: 0, last: null, next: null });
+    return records.get(id);
+  };
+  const opp = t => ({ id: t.id, name: t.name, acronym: t.acronym, image: t.image, image_dark: t.image_dark });
+  const own = m => m.tournament?.id === tournamentId && m.teams.length === 2;
+
+  for (const m of finished.filter(own).sort((a, b) => time(a) - time(b))) {
+    if (m.winner_id == null) continue;
+    for (const [us, them] of [m.teams, [...m.teams].reverse()]) {
+      const r = get(us.id);
+      const won = m.winner_id === us.id;
+      r.wins += won;
+      r.losses += !won;
+      r.last = { id: m.id, at: m.begin_at, won, score: [us.score ?? 0, them.score ?? 0], opp: opp(them) };
+    }
+  }
+  for (const m of scheduled.filter(own).sort((a, b) => time(a) - time(b))) {
+    for (const [us, them] of [m.teams, [...m.teams].reverse()]) {
+      const r = get(us.id);
+      r.next ??= { id: m.id, at: m.begin_at, live: m.status === 'running', opp: opp(them) };
+    }
+  }
+  return records;
+}
+
 // a'nın maç listesinden b ile oynadıkları (yeniden eskiye)
 export function headToHead(a, b, matchesOfA, limit = 10) {
   return matchesOfA

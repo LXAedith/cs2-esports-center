@@ -1,0 +1,39 @@
+name: Arayüz kalite kontrolü
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Bağımlılıklar
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      # Demo veri uç durumları (eleme tablosu, belirlenmemiş takımlar) kapsar;
+      # yayındaki veri gerçek uzunlukta isimleri ve kalabalık listeleri getirir.
+      - name: Demo veriyle kontrol
+        run: |
+          node scripts/fetch-data.mjs --demo
+          node qa/run.mjs --no-shots
+
+      - name: Yayındaki veriyle kontrol
+        run: node qa/run.mjs --live-data
+
+      - name: Raporu ve ekran görüntülerini sakla
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: qa-raporu
+          path: qa/out
+          retention-days: 14
