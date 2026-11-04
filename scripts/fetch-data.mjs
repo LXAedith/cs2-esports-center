@@ -53,14 +53,21 @@ async function writeJson(file, value) {
   await writeFile(file, JSON.stringify(value));
 }
 
+// PandaScore saatlik kotanın yanında kısa süreli patlamaları da sınırlıyor (429); istekler aralıklı gider.
+const MIN_GAP_MS = 400;
+let lastRequest = 0;
+
 async function api(path, params = {}) {
   const url = new URL(path, API);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   for (let attempt = 1; ; attempt++) {
+    const wait = lastRequest + MIN_GAP_MS - Date.now();
+    if (wait > 0) await sleep(wait);
+    lastRequest = Date.now();
     const res = await fetch(url, { headers: { Authorization: `Bearer ${TOKEN}`, Accept: 'application/json' } });
     if (res.ok) return { data: await res.json(), total: Number(res.headers.get('x-total') ?? 0) };
     if ((res.status === 429 || res.status >= 500) && attempt < 3) {
-      await sleep(2000 * attempt);
+      await sleep((res.status === 429 ? 6000 : 2000) * attempt);
       continue;
     }
     throw new Error(`PandaScore ${res.status} ${url.pathname}: ${(await res.text()).slice(0, 300)}`);
@@ -237,9 +244,10 @@ async function fetchHeadToHead(matches, now) {
   }
   let requests = 0;
   let left = 0;
+  let stopped = false;
   for (const [key, [a, b]] of pairs) {
     if (cache[key] && now - cache[key].t < H2H_TTL) continue;
-    if (requests >= MAX_H2H_REQUESTS) { left++; continue; }
+    if (stopped || requests >= MAX_H2H_REQUESTS) { left++; continue; }
     requests++;
     try {
       const { data } = await api(`/teams/${a}/matches`, {
@@ -253,7 +261,8 @@ async function fetchHeadToHead(matches, now) {
       cache[key] = { t: now, meetings };
     } catch (err) {
       console.warn(`aralarındaki maçlar alınamadı (${key}): ${err.message}`);
-      break;
+      stopped = true;
+      left++;
     }
   }
   for (const [key, v] of Object.entries(cache)) {
