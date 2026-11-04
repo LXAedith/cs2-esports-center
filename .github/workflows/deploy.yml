@@ -4,8 +4,10 @@ on:
   push:
     branches: [main]
   schedule:
-    # GitHub zamanlanmış işleri yoğunlukta birkaç dakika geciktirebilir.
-    - cron: '*/10 * * * *'
+    # GitHub zamanlanmış işleri yoğunlukta geciktirip atlayabiliyor (pratikte ~saatte bir çalıştı).
+    # Saat başı en yoğun an olduğu için dakikalar kaydırıldı. Düzenli güncelleme için iş akışı
+    # dışarıdan workflow_dispatch ile de tetiklenebilir.
+    - cron: '4-59/10 * * * *'
   workflow_dispatch:
 
 permissions:
