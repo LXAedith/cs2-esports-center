@@ -126,6 +126,33 @@ export function runChecks() {
     if (unordered) add('puan-tablosu-sirasi', 'eleme tablosu seri skoruna göre sıralı değil');
   }
 
+  // Tablolar kutularına sığmalı ve hücreler alt satıra kırılmamalı (ör. "G–M" başlığının ikiye bölünmesi).
+  for (const table of [...document.querySelectorAll('table.standings')].filter(visible)) {
+    const box = table.parentElement.getBoundingClientRect();
+    if (table.getBoundingClientRect().width > box.width + 1) {
+      add('tablo-tasmasi', `${Math.round(table.getBoundingClientRect().width)}px tablo, ${Math.round(box.width)}px kutuda`);
+    }
+    const wrapped = [...table.querySelectorAll('th, td')].filter(c => visible(c) && !c.classList.contains('tcol') &&
+      c.getClientRects().length && c.getBoundingClientRect().height > parseFloat(getComputedStyle(c).lineHeight || 16) * 1.6 + 22);
+    if (wrapped.length) add('tablo-satir-kirilmasi', `${wrapped.length} hücre alt satıra kırılıyor (ör. "${wrapped[0].textContent.trim()}")`);
+  }
+
+  // Skorlar kırmızıya boyanmamalı; canlılık rozet ve çerçeveyle gösterilir.
+  const live = getComputedStyle(root).getPropertyValue('--live').trim();
+  const toHex = c => { const m = c.match(/\d+/g); return m ? `#${m.slice(0, 3).map(x => Number(x).toString(16).padStart(2, '0')).join('')}` : ''; };
+  const red = [...document.querySelectorAll('.side-score, .mid.score span, .team-row .score, .big-score span')]
+    .filter(el => visible(el) && toHex(getComputedStyle(el).color) === live.toLowerCase()).length;
+  if (red) add('kirmizi-skor', `${red} skor kırmızı gösteriliyor`);
+
+  // Harita etiketleri anlaşılır olmalı: simge ve kazanan/durum yazısı olmadan "H1" gibi kısaltma olmasın.
+  const cryptic = [...document.querySelectorAll('.mp')].filter(el => !el.querySelector('.ic') || !el.querySelector('.mp-name')).length;
+  if (cryptic) add('harita-etiketi', `${cryptic} harita etiketinde simge ya da açıklama yok`);
+
+  // Düğme yazıları kutularına sığmalı (sabit yükseklikli düğmede yazı alt satıra kırılırsa taşar).
+  const spilled = [...document.querySelectorAll('.watch, .btn, .stream-btn, .chip, .tabs a, .mp, .back')]
+    .filter(el => visible(el) && el.scrollHeight > el.clientHeight + 2);
+  if (spilled.length) add('dugme-tasmasi', `${spilled.length} düğmede yazı sığmıyor (ör. ${describe(spilled[0])} "${spilled[0].textContent.trim().slice(0, 30)}")`);
+
   // Galibiyet/mağlubiyet sayıları renkli; sıfır ise renksiz olmalı.
   const coloredZero = [...document.querySelectorAll('.standings .w, .standings .l')].filter(el => el.textContent.trim() === '0').length;
   if (coloredZero) add('renkli-sifir', `${coloredZero} sıfır değeri yeşil/kırmızı boyanmış`);

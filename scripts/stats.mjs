@@ -84,16 +84,27 @@ export function tournamentRecords(tournamentId, finished, scheduled) {
   return records;
 }
 
+// Aralarındaki maçlar listesinde tek bir karşılaşma
+export const toMeeting = m => ({
+  id: m.id,
+  at: m.begin_at,
+  winner_id: m.winner_id,
+  scores: Object.fromEntries(m.teams.map(t => [t.id, t.score ?? 0])),
+  event: m.league?.name ?? null,
+});
+
 // a'nın maç listesinden b ile oynadıkları (yeniden eskiye)
 export function headToHead(a, b, matchesOfA, limit = 10) {
   return matchesOfA
     .filter(m => m.winner_id != null && m.teams.some(t => t.id === b))
     .slice(0, limit)
-    .map(m => ({
-      id: m.id,
-      at: m.begin_at,
-      winner_id: m.winner_id,
-      scores: Object.fromEntries(m.teams.map(t => [t.id, t.score ?? 0])),
-      event: m.league?.name ?? null,
-    }));
+    .map(toMeeting);
+}
+
+// Önbellekteki eski karşılaşmalarla geçmişteki yenileri birleştirir; en yeni `limit` maç kalır.
+export function mergeMeetings(lists, limit = 5) {
+  const byId = new Map();
+  for (const m of lists.flat()) if (m?.id != null && m.at) byId.set(m.id, m);
+  const at = m => Date.parse(m.at) || 0;
+  return [...byId.values()].sort((x, y) => at(y) - at(x)).slice(0, limit);
 }

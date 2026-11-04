@@ -56,6 +56,7 @@ const store = {
 const fmtTime = new Intl.DateTimeFormat('tr-TR', { hour: '2-digit', minute: '2-digit' });
 const fmtDay = new Intl.DateTimeFormat('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
 const fmtShort = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'short' });
+const fmtShortYear = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' });
 const fmtNum = new Intl.NumberFormat('tr-TR');
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -90,6 +91,8 @@ function dayName(date) {
 }
 
 const shortDate = ms => dayName(new Date(ms)) ?? fmtShort.format(ms);
+// Bu yıldan eskiyse yılı da yaz (ör. "12 Mar 2025").
+const longDate = ms => (new Date(ms).getFullYear() === new Date().getFullYear() ? fmtShort : fmtShortYear).format(ms);
 
 function prize(value) {
   const m = /^(\d+)\s+(.+)$/.exec(value ?? '');
@@ -219,8 +222,10 @@ function mapStrip(m, a, b) {
   return `<div class="map-strip" aria-label="Harita durumu">${m.games.map(g => {
     const winner = g.winner_id == null ? null : g.winner_id === a.id ? a : g.winner_id === b.id ? b : null;
     const cls = g.status === 'running' ? 'live' : winner ? (winner === a ? 'won-a' : 'won-b') : 'idle';
-    const label = g.status === 'running' ? 'Oynanıyor' : winner ? initials(winner) : '—';
-    return `<span class="mp ${cls}" title="${esc(`Harita ${g.position}${winner ? `: ${winner.name}` : ''}`)}"><b>H${g.position}</b>${esc(label)}</span>`;
+    const label = g.status === 'running' ? 'Oynanıyor' : winner ? winner.name : m.status === 'finished' ? 'Oynanmadı' : 'Sırada';
+    const title = `Harita ${g.position}: ${winner ? `${winner.name} kazandı` : label}`;
+    return `<span class="mp ${cls}" title="${esc(title)}" aria-label="${esc(title)}">${icon('map')}<b>${g.position}</b>${
+      winner ? logo(winner, 'xs') : ''}<span class="mp-name">${esc(label)}</span></span>`;
   }).join('')}</div>`;
 }
 
@@ -269,11 +274,14 @@ function matchRow(m, { withDate = false } = {}) {
   const winA = finished && m.winner_id != null && m.winner_id === a.id;
   const winB = finished && m.winner_id != null && m.winner_id === b.id;
   // Dar düzende takımlar alt alta dizilir ve skor her takımın yanında (side-score) gösterilir.
+  // Canlı maçta geride olan taraf, biten maçta kaybeden taraf soluk gösterilir; skorlar kırmızı olmaz.
   const scored = finished || live;
+  const dimA = winB || (live && (a.score ?? 0) < (b.score ?? 0));
+  const dimB = winA || (live && (b.score ?? 0) < (a.score ?? 0));
   const side = (t, cls, lost) => `<div class="side ${cls}${lost ? ' lose' : ''}${t.tbd ? ' tbd' : ''}">${teamEl(t, { rev: cls === 'a' })}${
     scored ? `<b class="side-score num">${esc(t.score ?? 0)}</b>` : ''}</div>`;
   const mid = scored
-    ? `<div class="mid score${live ? ' live' : ''}"><span class="${winB ? 'l' : ''}">${esc(a.score ?? 0)}</span><span class="l">:</span><span class="${winA ? 'l' : ''}">${esc(b.score ?? 0)}</span></div>`
+    ? `<div class="mid score${live ? ' live' : ''}"><span class="${dimA ? 'l' : ''}">${esc(a.score ?? 0)}</span><span class="l">:</span><span class="${dimB ? 'l' : ''}">${esc(b.score ?? 0)}</span></div>`
     : '<div class="mid">vs</div>';
   const tags = [m.forfeit && '<span class="tag">Hükmen</span>', m.draw && '<span class="tag">Berabere</span>'].filter(Boolean).join('');
   const action = main
@@ -284,7 +292,7 @@ function matchRow(m, { withDate = false } = {}) {
   return `<article class="row${live ? ' is-live' : ''}${scored ? ' scored' : ''}">
     <a class="stretched" href="${matchHash(m.id)}" aria-label="${esc(`${a.name} - ${b.name} maç detayı`)}"></a>
     <div class="row-time">${begin ? fmtTime.format(begin) : '—'}${note}</div>
-    <div class="row-match">${side(a, 'a', winB)}${mid}${side(b, 'b', winA)}</div>
+    <div class="row-match">${side(a, 'a', dimA)}${mid}${side(b, 'b', dimB)}</div>
     <div class="row-meta">
       <span class="league" title="${esc([m.league?.name, subtitle(m)].filter(Boolean).join(' · '))}">${logo(m.league, 'xs')}<span>${esc(m.league?.name)}${subtitle(m) ? ` · ${esc(subtitle(m))}` : ''}</span></span>
       <span class="sub">${tierBadge(m.tournament?.tier)}<span class="extra">${esc([boLabel(m), m.stage].filter(Boolean).join(' · '))}</span>${tags}</span>
@@ -392,11 +400,11 @@ function standingsTable(t, highlight = new Set(), compact = false) {
       return `<a class="st-match" href="${matchHash(n.id)}"><span class="vs-opp">${logo(n.opp, 'sm')}<span>${esc(initials(n.opp))}</span></span>${when}</a>`;
     };
     return `<table class="standings bracket"><thead><tr><th>#</th><th class="tcol">Takım</th><th title="Bu turnuvada kazanılan – kaybedilen seri">G–M</th>
-        <th class="left">Son maç</th><th class="left hide-sm">Sıradaki</th></tr></thead><tbody>
+        <th class="left">Son maç</th><th class="left opt">Sıradaki</th></tr></thead><tbody>
       ${rows.map(s => (s ? `<tr class="${cls(s)}"><td class="rank">${esc(s.pos)}</td>
         <td class="tcol">${teamEl(s.team, { size: 'sm' })}</td>
         <td class="num">${s.record ? `${wl(s.record.wins, 'w')}–${wl(s.record.losses, 'l')}` : '<span class="muted">—</span>'}</td>
-        <td class="left">${recent(s)}</td><td class="left hide-sm">${next(s)}</td></tr>` : gap(5))).join('')}
+        <td class="left">${recent(s)}</td><td class="left opt">${next(s)}</td></tr>` : gap(5))).join('')}
     </tbody></table>`;
   }
 
@@ -406,11 +414,11 @@ function standingsTable(t, highlight = new Set(), compact = false) {
     const d = s.game_wins - s.game_losses;
     return `<span class="${d > 0 ? 'pos' : d < 0 ? 'neg' : 'muted'}">${d > 0 ? '+' : d < 0 ? '−' : ''}${Math.abs(d)}</span>`;
   };
-  return `<table class="standings"><thead><tr><th>#</th><th class="tcol">Takım</th><th class="hide-sm" title="Oynanan">O</th>
+  return `<table class="standings"><thead><tr><th>#</th><th class="tcol">Takım</th><th class="opt" title="Oynanan">O</th>
       <th title="Galibiyet">G</th><th title="Mağlubiyet">M</th>${ties ? '<th title="Beraberlik">B</th>' : ''}<th title="Harita averajı">Av.</th></tr></thead><tbody>
     ${rows.map(s => (s ? `<tr class="${cls(s)}"><td class="rank">${esc(s.pos)}</td>
       <td class="tcol">${teamEl(s.team, { size: 'sm' })}</td>
-      <td class="hide-sm muted">${esc(s.total ?? s.wins + s.losses)}</td><td>${wl(s.wins, 'w')}</td><td>${wl(s.losses, 'l')}</td>
+      <td class="opt muted">${esc(s.total ?? s.wins + s.losses)}</td><td>${wl(s.wins, 'w')}</td><td>${wl(s.losses, 'l')}</td>
       ${ties ? `<td class="muted">${esc(s.ties ?? 0)}</td>` : ''}<td>${diff(s)}</td></tr>` : gap(ties ? 7 : 6))).join('')}
   </tbody></table>`;
 }
@@ -596,22 +604,22 @@ function compareBlock(a, b, ta, tb) {
 function h2hBlock(m, a, b) {
   if (!state.teams) return loadingBlock('swords', 'Aralarındaki maçlar');
   if (a.id == null || b.id == null) return '';
-  const days = state.data.range?.days_history ?? 30;
-  const list = (state.teams.h2h?.[pairKey(a.id, b.id)] ?? []).filter(x => x.id !== m.id);
-  if (!list.length) return block('swords', 'Aralarındaki maçlar', `<p class="muted pad">Son ${days} günde karşılaşmadılar.</p>`);
+  // Bu maç hariç, aralarındaki en son 5 karşılaşma (tarih sınırı yok).
+  const list = (state.teams.h2h?.[pairKey(a.id, b.id)] ?? []).filter(x => x.id !== m.id).slice(0, 5);
+  if (!list.length) return block('swords', 'Aralarındaki maçlar', '<p class="muted pad">Aralarında kayıtlı maç yok.</p>');
   const aw = list.filter(x => x.winner_id === a.id).length;
   const bw = list.filter(x => x.winner_id === b.id).length;
-  const rows = list.slice(0, 5).map(x => {
+  const rows = list.map(x => {
     const linked = state.data.past.some(p => p.id === x.id);
     const sa = x.scores[a.id] ?? 0;
     const sb = x.scores[b.id] ?? 0;
-    const inner = `<time>${esc(fmtShort.format(Date.parse(x.at)))}</time><span class="ev">${esc(x.event ?? '')}</span>
+    const inner = `<time>${esc(longDate(Date.parse(x.at)))}</time><span class="ev">${esc(x.event ?? '')}</span>
       <span class="sc num"><b class="${x.winner_id === a.id ? '' : 'dim'}">${sa}</b>–<b class="${x.winner_id === b.id ? '' : 'dim'}">${sb}</b></span>`;
     return linked ? `<a class="h2h-row" href="${matchHash(x.id)}">${inner}</a>` : `<div class="h2h-row">${inner}</div>`;
   }).join('');
   const body = `<div class="h2h-sum">${logo(a)}<span class="num"><b class="${aw >= bw ? '' : 'dim'}">${aw}</b><i>–</i><b class="${bw >= aw ? '' : 'dim'}">${bw}</b></span>${logo(b)}</div>
     <div class="h2h-list">${rows}</div>`;
-  return block('swords', 'Aralarındaki maçlar', body, `Son ${days} gün · ${list.length} maç`);
+  return block('swords', 'Aralarındaki maçlar', body, `Son ${list.length} karşılaşma`);
 }
 
 function rosterList(t, info) {

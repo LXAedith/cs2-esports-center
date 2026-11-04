@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDemoData } from './demo-data.mjs';
 import { resolveLiquipedia } from './liquipedia.mjs';
-import { headToHead, indexByTeam, pairKey, teamSummary, tournamentRecords } from './stats.mjs';
+import { headToHead, indexByTeam, mergeMeetings, pairKey, teamSummary, toMeeting, tournamentRecords } from './stats.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DATA_DIR = join(ROOT, 'site', 'data');
@@ -25,13 +25,16 @@ const MAX_PAGES = Number(process.env.MAX_PAGES ?? 6);
 const MAX_HISTORY_PAGES = Number(process.env.MAX_HISTORY_PAGES ?? 25);
 const MAX_STANDINGS = Number(process.env.MAX_STANDINGS ?? 30);
 const MAX_ROSTER_REQUESTS = Number(process.env.MAX_ROSTER_REQUESTS ?? 10);
+const MAX_H2H_REQUESTS = Number(process.env.MAX_H2H_REQUESTS ?? 60);
 const LIQUIPEDIA = process.env.LIQUIPEDIA !== '0';
 const LIQUIPEDIA_MAX_REQUESTS = Number(process.env.LIQUIPEDIA_MAX_REQUESTS ?? 20);
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 const ROSTER_TTL = 12 * HOUR;
+const H2H_TTL = 7 * DAY;
 const TIER_ORDER = { s: 0, a: 1, b: 2, c: 3, d: 4, unranked: 5 };
+const tierRank = m => TIER_ORDER[m.tournament?.tier] ?? 9;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const time = m => Date.parse(m.begin_at ?? m.scheduled_at ?? '') || 0;
@@ -221,6 +224,47 @@ async function fetchRosters(ids, now) {
   return Object.fromEntries(Object.entries(cache).filter(([, v]) => v.team).map(([id, v]) => [id, v.team]));
 }
 
+// İki takımın aralarındaki son 5 maç; 30 günlük geçmişin dışına da bakmak için takım çifti başına
+// PandaScore'a sorulur. Sonuçlar 7 gün önbellekte kalır; arada oynanan yeni maçlar geçmişten eklenir.
+// Önce canlı, sonra yaklaşan (üst seviye ve yakın olanlar önde), en son biten maçların çiftleri sorulur.
+async function fetchHeadToHead(matches, now) {
+  const file = join(CACHE_DIR, 'h2h.json');
+  const cache = await readJson(file, {});
+  const pairs = new Map();
+  for (const m of matches) {
+    const [a, b] = m.teams;
+    if (a?.id != null && b?.id != null && !pairs.has(pairKey(a.id, b.id))) pairs.set(pairKey(a.id, b.id), [a.id, b.id]);
+  }
+  let requests = 0;
+  let left = 0;
+  for (const [key, [a, b]] of pairs) {
+    if (cache[key] && now - cache[key].t < H2H_TTL) continue;
+    if (requests >= MAX_H2H_REQUESTS) { left++; continue; }
+    requests++;
+    try {
+      const { data } = await api(`/teams/${a}/matches`, {
+        'filter[opponent_id]': b, 'filter[status]': 'finished', sort: '-begin_at', per_page: 10,
+      });
+      // Filtre beklendiği gibi çalışmasa bile yalnızca iki takımın da oynadığı maçlar alınır.
+      const meetings = data
+        .filter(m => m.begin_at && m.winner_id != null && (m.opponents ?? []).some(o => o.opponent?.id === b))
+        .map(m => toMeeting(slimMatch(m)))
+        .slice(0, 5);
+      cache[key] = { t: now, meetings };
+    } catch (err) {
+      console.warn(`aralarındaki maçlar alınamadı (${key}): ${err.message}`);
+      break;
+    }
+  }
+  for (const [key, v] of Object.entries(cache)) {
+    if (now - v.t > 30 * DAY) delete cache[key];
+  }
+  await writeJson(file, cache);
+  const found = [...pairs.keys()].filter(k => cache[k]?.meetings.length).length;
+  console.log(`aralarındaki maçlar: ${requests} istek, ${found}/${pairs.size} çiftin geçmişi var, ${left} çift sonraki çalıştırmaya kaldı`);
+  return Object.fromEntries(Object.entries(cache).map(([k, v]) => [k, v.meetings]));
+}
+
 async function fetchLive() {
   const now = Date.now();
   const filter = { 'filter[videogame]': GAME };
@@ -262,12 +306,15 @@ async function fetchLive() {
   }
   for (const t of withStandings) for (const s of t.standings ?? []) if (s.team?.id != null) ids.add(s.team.id);
   const rosters = await fetchRosters(ids, now);
+  const recentPast = history.filter(m => time(m) >= now - DAYS_BACK * DAY).sort((a, b) => time(b) - time(a));
+  const byPriority = list => [...list].sort((a, b) => tierRank(a) - tierRank(b) || time(a) - time(b));
+  const h2h = await fetchHeadToHead([...running.map(slimMatch), ...byPriority(slimUpcoming), ...byPriority(recentPast)], now);
 
-  return { demo: false, running: running.map(slimMatch), upcoming: slimUpcoming, history, tournaments: withStandings, rosters };
+  return { demo: false, running: running.map(slimMatch), upcoming: slimUpcoming, history, tournaments: withStandings, rosters, h2h };
 }
 
 // Listeleri ve maç detayı için takım verisini birleştirir.
-function assemble({ demo, running, upcoming, history, tournaments, rosters }) {
+function assemble({ demo, running, upcoming, history, tournaments, rosters, h2h: fetchedH2h = {} }) {
   const now = Date.now();
   const generatedAt = new Date(now).toISOString();
   const past = history.filter(m => time(m) >= now - DAYS_BACK * DAY).sort((a, b) => time(b) - time(a));
@@ -314,7 +361,7 @@ function assemble({ demo, running, upcoming, history, tournaments, rosters }) {
     if (a?.id == null || b?.id == null) continue;
     const key = pairKey(a.id, b.id);
     if (key in h2h) continue;
-    const meetings = headToHead(a.id, b.id, byTeam.get(a.id) ?? []);
+    const meetings = mergeMeetings([fetchedH2h[key] ?? [], headToHead(a.id, b.id, byTeam.get(a.id) ?? [])], 6);
     if (meetings.length) h2h[key] = meetings;
   }
 
@@ -323,7 +370,7 @@ function assemble({ demo, running, upcoming, history, tournaments, rosters }) {
       generated_at: generatedAt,
       demo,
       source: demo ? 'Demo' : 'PandaScore',
-      range: { days_back: DAYS_BACK, days_ahead: DAYS_AHEAD, days_history: DAYS_HISTORY },
+      range: { days_back: DAYS_BACK, days_ahead: DAYS_AHEAD, days_history: DAYS_HISTORY, h2h_limit: 5 },
       running,
       upcoming,
       past,

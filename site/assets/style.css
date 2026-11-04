@@ -429,16 +429,20 @@ a.team:focus-visible, a.p-nick:focus-visible { outline: 2px solid var(--accent);
 .mp {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 24px;
-  padding: 0 8px;
+  gap: 5px;
+  min-width: 0;
+  height: 26px;
+  padding: 0 9px 0 7px;
   border-radius: 6px;
   background: var(--surface-2);
   color: var(--muted);
   font-size: 11.5px;
   font-weight: 600;
 }
-.mp b { color: var(--faint); font-weight: 700; font-size: 10.5px; }
+.mp b { color: inherit; opacity: 0.75; font-weight: 700; font-size: 11px; }
+.mp .ic { width: 13px; height: 13px; }
+.mp .logo.xs { background: none; padding: 0; }
+.mp-name { max-width: 108px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mp.won-a { background: var(--accent-soft); color: var(--accent-ink); }
 .mp.won-b { background: var(--team-b-soft); color: var(--team-b); }
 .mp.live { background: var(--live-soft); color: var(--live); }
@@ -457,6 +461,7 @@ a.team:focus-visible, a.p-nick:focus-visible { outline: 2px solid var(--accent);
   font-size: 12.5px;
   transition: filter 0.15s;
 }
+.watch { flex: none; white-space: nowrap; }
 .watch:hover { filter: brightness(1.08); }
 .watch .via { opacity: 0.8; font-weight: 500; }
 .no-stream { color: var(--faint); font-size: 13px; }
@@ -528,7 +533,7 @@ a.team:focus-visible, a.p-nick:focus-visible { outline: 2px solid var(--accent);
 .row:hover .mid { background: var(--surface-3); }
 .mid.score { color: var(--text); font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .mid.score .l { color: var(--faint); }
-.mid.live { background: var(--live-soft); color: var(--live); }
+.mid.live { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--live) 45%, transparent); }
 
 .row-meta { display: grid; gap: 3px; min-width: 0; }
 .row-meta .league { display: flex; align-items: center; gap: 7px; min-width: 0; color: var(--muted); font-size: 12.5px; }
@@ -591,7 +596,6 @@ img.logo.xs { padding: 1px; }
 }
 .side-score { display: none; margin-left: auto; padding-left: 8px; font-size: 15px; font-weight: 800; }
 .side.lose .side-score { color: var(--faint); }
-.row.is-live .side-score { color: var(--live); }
 .side .logo.avatar { font-size: 8px; }
 
 /* ---------- Turnuvalar ---------- */
@@ -670,6 +674,23 @@ img.logo.xs { padding: 1px; }
 .standings .zero { color: var(--muted); }
 .standings th.left, .standings td.left { text-align: left; }
 .standings tr.gap td { padding: 2px 12px; color: var(--faint); text-align: center; letter-spacing: 0.2em; }
+/* Hücreler alt satıra kırılmaz; esnek olan tek sütun takım adıdır (gerekirse "…" ile kısalır). */
+.standings th, .standings td { white-space: nowrap; }
+.standings td.tcol { width: 100%; max-width: 0; }
+
+/* Tablo, ekrana değil içinde durduğu kutuya göre daralır (ör. maç detayının yan sütunu). */
+.panel { container: block / inline-size; }
+@container block (max-width: 560px) {
+  .standings .opt { display: none; }
+  .standings th, .standings td { padding-left: 7px; padding-right: 7px; }
+  .standings th:first-child, .standings td:first-child { width: 36px; padding-left: 14px; }
+  .standings th:last-child, .standings td:last-child { padding-right: 14px; }
+}
+@container block (max-width: 420px) {
+  /* Telefonda son maçta rakip yalnızca logosuyla görünür; takım adına yer kalır. */
+  .standings .vs-opp > span { display: none; }
+  .standings .st-match { gap: 6px; }
+}
 .st-match { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 .vs-opp { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; }
 a.st-match:hover .vs-opp { color: var(--accent-ink); }
@@ -680,10 +701,6 @@ a.st-match:hover .vs-opp { color: var(--accent-ink); }
   .league-select { display: block; }
 }
 @media (max-width: 560px) {
-  .standings .hide-sm { display: none; }
-  .standings th:first-child, .standings td:first-child { padding-left: 14px; width: 40px; }
-  .standings th:last-child, .standings td:last-child { padding-right: 14px; }
-  .standings td, .standings th { padding-left: 8px; padding-right: 8px; }
   .panel-head { padding: 16px 14px; }
   .panel h3 { margin-left: 14px; margin-right: 14px; }
   .panel .list, .panel .empty { margin-left: 14px; margin-right: 14px; }
@@ -871,7 +888,7 @@ a.st-match:hover .vs-opp { color: var(--accent-ink); }
 .h2h-sum .num { display: flex; align-items: center; gap: 10px; font-size: 30px; font-weight: 800; }
 .h2h-sum i { color: var(--faint); font-style: normal; font-weight: 400; }
 .h2h-list { display: grid; border-top: 1px solid var(--border); }
-.h2h-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 9px 18px; font-size: 13px; }
+.h2h-row { display: grid; grid-template-columns: 88px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 9px 18px; font-size: 13px; }
 .h2h-row + .h2h-row { border-top: 1px solid var(--border); }
 a.h2h-row:hover { background: var(--surface-2); }
 .h2h-row time { color: var(--muted); font-size: 12px; }
