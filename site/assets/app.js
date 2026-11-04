@@ -363,6 +363,9 @@ function bracketOrder(rows) {
   }).map((s, i, list) => ({ ...s, pos: s.pos ?? list.slice(0, i).findLast(x => x.pos != null).pos }));
 }
 
+// Galibiyet sayısı yeşil, mağlubiyet sayısı kırmızı; sıfır renksiz kalır.
+const wl = (n, kind) => `<span class="${n ? kind : 'zero'}">${esc(n)}</span>`;
+
 function standingsTable(t, highlight = new Set(), compact = false) {
   const raw = t.standings ?? [];
   if (!raw.length) return empty('trophy', 'Puan tablosu henüz yok', 'Turnuva ilerledikçe sıralama burada görünecek.');
@@ -392,7 +395,7 @@ function standingsTable(t, highlight = new Set(), compact = false) {
         <th class="left">Son maç</th><th class="left hide-sm">Sıradaki</th></tr></thead><tbody>
       ${rows.map(s => (s ? `<tr class="${cls(s)}"><td class="rank">${esc(s.pos)}</td>
         <td class="tcol">${teamEl(s.team, { size: 'sm' })}</td>
-        <td class="num">${s.record ? `<span class="w">${s.record.wins}</span>–<span class="muted">${s.record.losses}</span>` : '<span class="muted">—</span>'}</td>
+        <td class="num">${s.record ? `${wl(s.record.wins, 'w')}–${wl(s.record.losses, 'l')}` : '<span class="muted">—</span>'}</td>
         <td class="left">${recent(s)}</td><td class="left hide-sm">${next(s)}</td></tr>` : gap(5))).join('')}
     </tbody></table>`;
   }
@@ -407,7 +410,7 @@ function standingsTable(t, highlight = new Set(), compact = false) {
       <th title="Galibiyet">G</th><th title="Mağlubiyet">M</th>${ties ? '<th title="Beraberlik">B</th>' : ''}<th title="Harita averajı">Av.</th></tr></thead><tbody>
     ${rows.map(s => (s ? `<tr class="${cls(s)}"><td class="rank">${esc(s.pos)}</td>
       <td class="tcol">${teamEl(s.team, { size: 'sm' })}</td>
-      <td class="hide-sm muted">${esc(s.total ?? s.wins + s.losses)}</td><td class="w">${esc(s.wins)}</td><td class="muted">${esc(s.losses)}</td>
+      <td class="hide-sm muted">${esc(s.total ?? s.wins + s.losses)}</td><td>${wl(s.wins, 'w')}</td><td>${wl(s.losses, 'l')}</td>
       ${ties ? `<td class="muted">${esc(s.ties ?? 0)}</td>` : ''}<td>${diff(s)}</td></tr>` : gap(ties ? 7 : 6))).join('')}
   </tbody></table>`;
 }

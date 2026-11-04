@@ -105,10 +105,16 @@ export function runChecks() {
     if (diff > 3) add('yapiskan-baslik', `gün başlığı top=${getComputedStyle(day).top}, üst bar ${Math.round(bar.getBoundingClientRect().height)}px`);
   }
 
-  // 8. Puan tablosu: herkes aynı sonucu göstermemeli (veri yanlış yorumlanıyor demektir).
-  for (const table of document.querySelectorAll('table.standings')) {
-    const pills = [...table.querySelectorAll('.result-pill, .fp')].map(p => p.textContent.trim());
-    if (pills.length >= 4 && new Set(pills).size === 1) add('puan-tablosu-tutarsiz', `${pills.length} satırın hepsinde "${pills[0]}"`);
+  // 8. Puan tablosu: son maç sonucu, takımın seri skoruyla çelişmemeli (ör. "G" ama hiç galibiyet yok).
+  // Herkesin "M" görünmesi tek başına hata değil: PandaScore bazı playofflarda yalnızca elenenleri verir.
+  for (const table of document.querySelectorAll('table.standings.bracket')) {
+    let wrong = 0;
+    for (const tr of table.querySelectorAll('tbody tr:not(.gap)')) {
+      const m = /^(\d+)–(\d+)$/.exec(tr.children[2]?.textContent.trim() ?? '');
+      const last = tr.querySelector('.fp')?.textContent.trim();
+      if (m && ((last === 'G' && m[1] === '0') || (last === 'M' && m[2] === '0'))) wrong++;
+    }
+    if (wrong) add('puan-tablosu-tutarsiz', `${wrong} satırda son maç sonucu seri skoruyla çelişiyor`);
   }
 
   // Eleme tablosu seri skoruna göre sıralı olmalı (0–2 elenen takım tepede durmamalı).
@@ -119,6 +125,10 @@ export function runChecks() {
     const unordered = records.some((r, i) => i && (r[0] > records[i - 1][0] || (r[0] === records[i - 1][0] && r[1] < records[i - 1][1])));
     if (unordered) add('puan-tablosu-sirasi', 'eleme tablosu seri skoruna göre sıralı değil');
   }
+
+  // Galibiyet/mağlubiyet sayıları renkli; sıfır ise renksiz olmalı.
+  const coloredZero = [...document.querySelectorAll('.standings .w, .standings .l')].filter(el => el.textContent.trim() === '0').length;
+  if (coloredZero) add('renkli-sifir', `${coloredZero} sıfır değeri yeşil/kırmızı boyanmış`);
 
   // Tablo hücreleri başka bir bileşen sınıfı yüzünden flex/blok kutuya dönüşmemeli.
   const badCells = [...document.querySelectorAll('table td, table th')]

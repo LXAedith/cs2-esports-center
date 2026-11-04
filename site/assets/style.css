@@ -666,6 +666,8 @@ img.logo.xs { padding: 1px; }
 .standings tr.top .rank { color: var(--accent-ink); }
 .standings tr.hl td { background: var(--accent-soft); }
 .standings .w { color: var(--win); font-weight: 600; }
+.standings .l { color: var(--loss); font-weight: 600; }
+.standings .zero { color: var(--muted); }
 .standings th.left, .standings td.left { text-align: left; }
 .standings tr.gap td { padding: 2px 12px; color: var(--faint); text-align: center; letter-spacing: 0.2em; }
 .st-match { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
